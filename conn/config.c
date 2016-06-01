@@ -80,7 +80,7 @@ struct ConfigDef ConnVars[] = {
   { "preconnect",                DT_STRING,                 &C_Preconnect,             0 },
 #ifdef USE_SSL
 #ifdef USE_SSL_GNUTLS
-  { "ssl_ca_certificates_file",  DT_PATH|DT_PATH_FILE,      &C_SslCaCertificatesFile,  0 },
+  { "ssl_ca_certificates_file",  DT_PATH|DT_PATH_FILE,      &C_SslCaCertificatesFile,  IP "/etc/ssl/certs/ca-bundle.crt" },
 #endif
   { "ssl_ciphers",               DT_STRING,                 &C_SslCiphers,             IP "@SYSTEM" },
   { "ssl_client_cert",           DT_PATH|DT_PATH_FILE,      &C_SslClientCert,          0 },
