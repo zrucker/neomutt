@@ -82,7 +82,7 @@ struct ConfigDef ConnVars[] = {
 #ifdef USE_SSL_GNUTLS
   { "ssl_ca_certificates_file",  DT_PATH|DT_PATH_FILE,      &C_SslCaCertificatesFile,  0 },
 #endif
-  { "ssl_ciphers",               DT_STRING,                 &C_SslCiphers,             0 },
+  { "ssl_ciphers",               DT_STRING,                 &C_SslCiphers,             IP "@SYSTEM" },
   { "ssl_client_cert",           DT_PATH|DT_PATH_FILE,      &C_SslClientCert,          0 },
   { "ssl_force_tls",             DT_BOOL,                   &C_SslForceTls,            false },
 #ifdef USE_SSL_GNUTLS
