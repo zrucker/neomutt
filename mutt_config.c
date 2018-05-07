@@ -141,6 +141,9 @@ struct ConfigDef MainVars[] = {
   { "header", DT_BOOL, &C_Header, false },
   { "header_color_partial", DT_BOOL|R_PAGER_FLOW, &C_HeaderColorPartial, false },
   { "help", DT_BOOL|R_REFLOW, &C_Help, true },
+#ifdef USE_DEVEL_HELP
+  { "help_doc_dir", DT_STRING|DT_PATH, &C_HelpDocDir, IP PKGDOCDIR "/help" },
+#endif
   { "hidden_tags", DT_SLIST|SLIST_SEP_COMMA, &C_HiddenTags, IP "unread,draft,flagged,passed,replied,attachment,signed,encrypted" },
   { "hide_limited", DT_BOOL|R_TREE|R_INDEX, &C_HideLimited, false },
   { "hide_missing", DT_BOOL|R_TREE|R_INDEX, &C_HideMissing, true },

@@ -91,6 +91,9 @@ WHERE char *C_ConfigCharset;                 ///< Config: Character set that the
 WHERE char *C_DateFormat;                    ///< Config: strftime format string for the `%d` expando
 WHERE char *C_Editor;                        ///< Config: External command to use as an email editor
 WHERE char *C_Hostname;                      ///< Config: Fully-qualified domain name of this machine
+#ifdef USE_DEVEL_HELP
+WHERE char *C_HelpDocDir;
+#endif
 WHERE char *C_IndexFormat;                   ///< Config: printf-like format string for the index menu (emails)
 
 WHERE char *C_Mbox;                          ///< Config: Folder that receives read emails (see Move)
