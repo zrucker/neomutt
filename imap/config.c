@@ -82,7 +82,7 @@ struct ConfigDef ImapVars[] = {
   { "imap_peek",                  DT_BOOL,                           &C_ImapPeek,                true },
   { "imap_poll_timeout",          DT_NUMBER|DT_NOT_NEGATIVE,         &C_ImapPollTimeout,         15 },
   { "imap_qresync",               DT_BOOL,                           &C_ImapQresync,             false },
-  { "imap_user",                  DT_STRING|DT_SENSITIVE,            &C_ImapUser,                0 },
+  { "imap_user",                  DT_STRING|DT_SENSITIVE|DT_INHERIT_ACC, &C_ImapUser,            0 },
   { NULL, 0, NULL, 0, 0, NULL },
 };
 // clang-format on
