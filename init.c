@@ -62,6 +62,8 @@
 #include "protos.h"
 #include "sort.h"
 #include "autocrypt/lib.h"
+#include "tracker.h"
+#include "version.h"
 #include "compress/lib.h"
 #include "hcache/lib.h"
 #include "history/lib.h"
@@ -214,6 +216,7 @@ static int execute_commands(struct ListHead *p)
   int rc = 0;
   struct Buffer *err = mutt_buffer_pool_get();
 
+  // printf("\033[1;32mstart of commands\033[0m\n");
   struct ListNode *np = NULL;
   STAILQ_FOREACH(np, p, entries)
   {
@@ -231,6 +234,7 @@ static int execute_commands(struct ListHead *p)
   }
   mutt_buffer_pool_release(&err);
 
+  // printf("\033[1;32mend of commands\033[0m\n");
   return rc;
 }
 
@@ -998,6 +1002,7 @@ enum CommandResult mutt_parse_rc_buffer(struct Buffer *line,
   if (mutt_buffer_len(line) == 0)
     return 0;
 
+  // printf("\033[1;33mRC: %s\033[0m\n", line);
   int i;
   enum CommandResult rc = MUTT_CMD_SUCCESS;
 
