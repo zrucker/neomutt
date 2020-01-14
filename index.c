@@ -769,7 +769,7 @@ static void change_folder_mailbox(struct Menu *menu, struct Mailbox *m, int *old
   else
   {
     // Recreate the Mailbox (probably because a hook has done `unmailboxes *`)
-    m = mx_path_resolve(dup_path);
+    m = mx_path_resolve(dup_path, C_Folder);
   }
   FREE(&dup_path);
 
@@ -825,7 +825,7 @@ static struct Mailbox *change_folder_notmuch(struct Menu *menu, char *buf,
     return NULL;
   }
 
-  struct Mailbox *m_query = mx_path_resolve(buf);
+  struct Mailbox *m_query = mx_path_resolve(buf, C_Folder);
   change_folder_mailbox(menu, m_query, oldcount, cur, read_only);
   return m_query;
 }
@@ -875,7 +875,7 @@ static void change_folder_string(struct Menu *menu, char *buf, size_t buflen,
   /* past this point, we don't return to the pager on error */
   *pager_return = false;
 
-  struct Mailbox *m = mx_path_resolve(buf);
+  struct Mailbox *m = mx_path_resolve(buf, C_Folder);
   change_folder_mailbox(menu, m, oldcount, cur, read_only);
 }
 
@@ -2477,7 +2477,7 @@ int mutt_index_menu(struct MuttWindow *dlg)
           goto changefoldercleanup;
         }
 
-        struct Mailbox *m = mx_mbox_find2(mutt_b2s(folderbuf));
+        struct Mailbox *m = mx_mbox_find2(mutt_b2s(folderbuf), C_Folder);
         if (m)
         {
           change_folder_mailbox(menu, m, &oldcount, &cur, read_only);
@@ -2548,7 +2548,7 @@ int mutt_index_menu(struct MuttWindow *dlg)
           goto changefoldercleanup2;
         }
 
-        struct Mailbox *m = mx_mbox_find2(mutt_b2s(folderbuf));
+        struct Mailbox *m = mx_mbox_find2(mutt_b2s(folderbuf), C_Folder);
         if (m)
         {
           change_folder_mailbox(menu, m, &oldcount, &cur, read_only);
