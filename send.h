@@ -84,6 +84,14 @@ extern char *        C_Signature;
 extern bool          C_SigOnTop;
 extern bool          C_UseFrom;
 
+enum
+{
+  SEND_STATE_FIRST_EDIT = 1,
+  SEND_STATE_FIRST_EDIT_HEADERS,
+  SEND_STATE_COMPOSE_EDIT,
+  SEND_STATE_COMPOSE_EDIT_HEADERS
+};
+
 /**
  * struct SendContext - XXX
  */
@@ -94,6 +102,10 @@ struct SendContext
 
   struct Email *e_templ;
   struct Mailbox *mailbox;
+  struct Buffer fcc;
+  struct Buffer tempfile;
+  time_t mtime;
+  time_t tempfile_mtime;
 
   /* Note: e_cur can't be stored in the send_context when
    * background editing is added.  This is here for now
@@ -101,9 +113,12 @@ struct SendContext
    */
   struct Email *e_cur;
   struct EmailList *el;
-  struct Buffer fcc;
 
+  unsigned int cur_security;
+  char *cur_message_id;
   char *ctx_realpath;
+
+  pid_t background_pid;
 
   char *pgp_sign_as;
   char *smime_default_key;
@@ -127,7 +142,12 @@ typedef uint16_t SendFlags;             ///< Flags for mutt_send_message(), e.g.
 #define SEND_DRAFT_FILE       (1 << 11) ///< Used by the -H flag
 #define SEND_TO_SENDER        (1 << 12) ///< Compose new email to sender
 #define SEND_GROUP_CHAT_REPLY (1 << 13) ///< Reply to all recipients preserving To/Cc
-#define SEND_NEWS             (1 << 14) ///< Reply to a news article
+#define SEND_BACKGROUND_EDIT  (1 << 14) ///< Allow background editing
+#define SEND_NEWS             (1 << 15) ///< Reply to a news article
+
+/* flags for mutt_edit_headers() */
+#define MUTT_EDIT_HEADERS_BACKGROUND  1
+#define MUTT_EDIT_HEADERS_RESUME      2
 
 int             mutt_send_message(SendFlags flags, struct Email *e_templ, const char *tempfile, struct Context *ctx, struct EmailList *el);
 void            mutt_add_to_reference_headers(struct Envelope *env, struct Envelope *curenv);

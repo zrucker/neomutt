@@ -54,6 +54,7 @@
 #include "conn/lib.h"
 #include "gui/lib.h"
 #include "debug/lib.h"
+#include "background.h"
 #include "browser.h"
 #include "commands.h"
 #include "context.h"

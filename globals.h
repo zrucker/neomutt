@@ -198,6 +198,7 @@ WHERE bool C_AutocryptReply;                 ///< Config: Replying to an autocry
 WHERE bool C_Autoedit;                       ///< Config: Skip the initial compose menu and edit the email
 WHERE bool C_AutoTag;                        ///< Config: Automatically apply actions to all tagged messages
 WHERE bool C_Beep;                           ///< Config: Make a noise when an error occurs
+WHERE bool C_BackgroundEdit;                 ///< Config: Enable background editing
 WHERE bool C_BeepNew;                        ///< Config: Make a noise when new mail arrives
 WHERE bool C_BrailleFriendly;                ///< Config: Move the cursor to the beginning of the line
 WHERE bool C_CheckMboxSize;                  ///< Config: (mbox,mmdf) Use mailbox size as an indicator of new mail

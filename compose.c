@@ -47,6 +47,7 @@
 #include "gui/lib.h"
 #include "mutt.h"
 #include "compose.h"
+#include "background.h"
 #include "browser.h"
 #include "commands.h"
 #include "context.h"
@@ -1318,6 +1319,7 @@ static int mutt_dlg_compose_observer(struct NotifyCallback *nc)
  * @param fcc    Buffer to save FCC
  * @param e_cur  Current message
  * @param flags  Flags, e.g. #MUTT_COMPOSE_NOFREEHEADER
+ * @retval  2 Edit was backgrounded
  * @retval  1 Message should be postponed
  * @retval  0 Normal exit
  * @retval -1 Abort message
@@ -1428,6 +1430,18 @@ int mutt_compose_menu(struct SendContext *sctx)
 
   /* Since this is rather long lived, we don't use the pool */
   struct Buffer fname = mutt_buffer_make(PATH_MAX);
+
+  /* Another alternative would be to create a resume op and:
+   *   mutt_unget_event(0, OP_COMPOSE_EDIT_MESSAGE_RESUME);
+   */
+  if (sctx->state)
+  {
+    if (sctx->state == SEND_STATE_COMPOSE_EDIT)
+      goto edit_message_resume;
+    if (sctx->state == SEND_STATE_COMPOSE_EDIT_HEADERS)
+      goto edit_headers_resume;
+    sctx->state = 0;
+  }
 
   bool redraw_env = false;
   while (loop)
@@ -1572,7 +1586,21 @@ int mutt_compose_menu(struct SendContext *sctx)
         if (C_Editor && (mutt_str_strcmp("builtin", C_Editor) != 0) && !C_EditHeaders)
         {
           mutt_rfc3676_space_unstuff(e);
-          mutt_edit_file(C_Editor, e->content->filename);
+
+          if ((sctx->flags & SEND_BACKGROUND_EDIT) && C_BackgroundEdit)
+          {
+            if (mutt_background_edit_file(sctx, C_Editor, e->content->filename) == 0)
+            {
+              sctx->state = SEND_STATE_COMPOSE_EDIT;
+              loop = false;
+              rc = 2;
+              break;
+            }
+          }
+          else
+            mutt_edit_file(C_Editor, e->content->filename);
+        edit_message_resume:
+          sctx->state = 0;
           mutt_rfc3676_space_stuff(e);
           mutt_update_encoding(e->content);
           menu->redraw = REDRAW_FULL;
@@ -1589,7 +1617,26 @@ int mutt_compose_menu(struct SendContext *sctx)
           const char *tag = NULL;
           char *err = NULL;
           mutt_env_to_local(e->env);
-          mutt_edit_headers(NONULL(C_Editor), sctx);
+
+          if ((sctx->flags & SEND_BACKGROUND_EDIT) && C_BackgroundEdit)
+          {
+            if (mutt_edit_headers(NONULL(C_Editor), sctx, MUTT_EDIT_HEADERS_BACKGROUND) == 2)
+            {
+              sctx->state = SEND_STATE_COMPOSE_EDIT_HEADERS;
+              loop = 0;
+              rc = 2;
+              break;
+            }
+          }
+          else
+            mutt_edit_headers(NONULL(C_Editor), sctx, 0);
+
+        edit_headers_resume:
+          if (sctx->state == SEND_STATE_COMPOSE_EDIT_HEADERS)
+          {
+            mutt_edit_headers(NONULL(C_Editor), sctx, MUTT_EDIT_HEADERS_RESUME);
+            sctx->state = 0;
+          }
           if (mutt_env_to_intl(e->env, &tag, &err))
           {
             mutt_error(_("Bad IDN in '%s': '%s'"), tag, err);

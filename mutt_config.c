@@ -451,6 +451,11 @@ struct ConfigDef MuttVars[] = {
   ** .pp
   ** Also see $$fast_reply.
   */
+  { "background_edit", DT_BOOL, &C_BackgroundEdit, false },
+  /*
+  ** .pp
+  ** ADD DOCUMENTATION.
+  */
   { "beep", DT_BOOL, &C_Beep, true },
   /*
   ** .pp

@@ -34,6 +34,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include "mutt/lib.h"
 #include "config/lib.h"
 #include "email/lib.h"
@@ -44,6 +46,7 @@
 #include "mutt.h"
 #include "debug/lib.h"
 #include "index.h"
+#include "background.h"
 #include "browser.h"
 #include "commands.h"
 #include "context.h"
@@ -3538,7 +3541,23 @@ int mutt_index_menu(struct MuttWindow *dlg)
       case OP_MAIL:
         if (!prereq(Context, menu, CHECK_ATTACH))
           break;
-        mutt_send_message(SEND_NO_FLAGS, NULL, NULL, Context, NULL);
+        if (BackgroundProcess)
+        {
+          struct SendContext *sctx = BackgroundProcess;
+          BackgroundProcess = NULL;
+          /* this is a quick hack for now */
+          mutt_message(_("Waiting for editor to exit"));
+          waitpid(sctx->background_pid, NULL, 0);
+          mutt_clear_error();
+
+          if (mutt_send_message_resume(sctx) == 2)
+            mutt_message(_("Editing backgrounded.  Hit m to restart"));
+        }
+        else
+        {
+          if (mutt_send_message(SEND_NO_FLAGS, NULL, NULL, Context, NULL) == 2)
+            mutt_message(_("Editing backgrounded.  Hit m to restart"));
+        }
         menu->redraw = REDRAW_FULL;
         break;
 

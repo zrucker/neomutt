@@ -40,6 +40,7 @@
 #include "gui/lib.h"
 #include "mutt.h"
 #include "mutt_header.h"
+#include "background.h"
 #include "index.h"
 #include "muttlib.h"
 #include "options.h"
@@ -165,195 +166,220 @@ int mutt_label_message(struct Mailbox *m, struct EmailList *el)
  * @param body   File containing message body
  * @param e      Email
  * @param fcc    Buffer for the fcc field
+ * Returns 0 on normal exit
+ *        -1 on error
+ *         2 if edit headers is backgrounded.
  */
-void mutt_edit_headers(const char *editor, struct SendContext *sctx)
+int mutt_edit_headers(const char *editor, struct SendContext *sctx, int flags)
 {
-  char buf[1024];
-  const char *p = NULL;
-  int i;
-  struct Envelope *n = NULL;
-  time_t mtime;
+  FILE *fp_in = NULL, *fp_out = NULL;
   struct stat st;
+  int rc = -1;
 
-  struct Email *e = sctx->e_templ;
-  const char *filename = e->content->filename;
+  const char *filename = sctx->e_templ->content->filename;
 
-  struct Buffer *path = mutt_buffer_pool_get();
-  mutt_buffer_mktemp(path);
-  FILE *fp_out = mutt_file_fopen(mutt_b2s(path), "w");
-  if (!fp_out)
+  if (flags != MUTT_EDIT_HEADERS_RESUME)
   {
-    mutt_perror(mutt_b2s(path));
-    goto cleanup;
-  }
+    mutt_buffer_alloc(&sctx->tempfile, 1024);
+    mutt_buffer_mktemp(&sctx->tempfile);
+    fp_out = mutt_file_fopen(mutt_b2s(&sctx->tempfile), "w");
+    if (!fp_out)
+    {
+      mutt_perror(mutt_b2s(&sctx->tempfile));
+      goto cleanup;
+    }
 
-  mutt_env_to_local(e->env);
-  mutt_rfc822_write_header(fp_out, e->env, NULL, MUTT_WRITE_HEADER_EDITHDRS, false, false);
-  fputc('\n', fp_out); /* tie off the header. */
+    mutt_env_to_local(sctx->e_templ->env);
+    mutt_rfc822_write_header(fp_out, sctx->e_templ->env, NULL, MUTT_WRITE_HEADER_EDITHDRS, false, false);
+    fputc('\n', fp_out); /* tie off the header. */
 
-  /* now copy the body of the message. */
-  FILE *fp_in = fopen(filename, "r");
-  if (!fp_in)
-  {
-    mutt_perror(filename);
-    mutt_file_fclose(&fp_out);
-    goto cleanup;
-  }
+    /* now copy the body of the message. */
+    fp_in = fopen(filename, "r");
+    if (!fp_in)
+    {
+      mutt_perror(filename);
+      mutt_file_fclose(&fp_out);
+      goto cleanup;
+    }
 
-  mutt_file_copy_stream(fp_in, fp_out);
+    mutt_file_copy_stream(fp_in, fp_out);
 
-  mutt_file_fclose(&fp_in);
-  mutt_file_fclose(&fp_out);
-
-  if (stat(mutt_b2s(path), &st) == -1)
-  {
-    mutt_perror(mutt_b2s(path));
-    goto cleanup;
-  }
-
-  mtime = mutt_file_decrease_mtime(mutt_b2s(path), &st);
-
-  mutt_edit_file(editor, mutt_b2s(path));
-  stat(mutt_b2s(path), &st);
-  if (mtime == st.st_mtime)
-  {
-    mutt_debug(LL_DEBUG1, "temp file was not modified\n");
-    /* the file has not changed! */
-    mutt_file_unlink(mutt_b2s(path));
-    goto cleanup;
-  }
-
-  mutt_file_unlink(filename);
-  mutt_list_free(&e->env->userhdrs);
-
-  /* Read the temp file back in */
-  fp_in = fopen(mutt_b2s(path), "r");
-  if (!fp_in)
-  {
-    mutt_perror(mutt_b2s(path));
-    goto cleanup;
-  }
-
-  fp_out = mutt_file_fopen(filename, "w");
-  if (!fp_out)
-  {
-    /* intentionally leak a possible temporary file here */
     mutt_file_fclose(&fp_in);
-    mutt_perror(filename);
-    goto cleanup;
+    mutt_file_fclose(&fp_out);
+
+    if (stat(mutt_b2s(&sctx->tempfile), &st) == -1)
+    {
+      mutt_perror(mutt_b2s(&sctx->tempfile));
+      goto cleanup;
+    }
+
+    sctx->tempfile_mtime = mutt_file_decrease_mtime(mutt_b2s(&sctx->tempfile), &st);
+
+    if (flags == MUTT_EDIT_HEADERS_BACKGROUND)
+    {
+      if (mutt_background_edit_file(sctx, editor, mutt_b2s(&sctx->tempfile)) == 0)
+      {
+        sctx->state = SEND_STATE_FIRST_EDIT_HEADERS;
+        return 2;
+      }
+      flags = 0; /* fall through on error */
+    }
+    else
+      mutt_edit_file(editor, mutt_b2s(&sctx->tempfile));
   }
 
-  n = mutt_rfc822_read_header(fp_in, NULL, true, false);
-  while ((i = fread(buf, 1, sizeof(buf), fp_in)) > 0)
-    fwrite(buf, 1, i, fp_out);
-  mutt_file_fclose(&fp_out);
-  mutt_file_fclose(&fp_in);
-  mutt_file_unlink(mutt_b2s(path));
+  if (flags != MUTT_EDIT_HEADERS_BACKGROUND)
+  {
+    char buf[1024];
+    const char *p = NULL;
+    int i;
+    struct Envelope *n = NULL;
 
-  /* in case the user modifies/removes the In-Reply-To header with
-   * $edit_headers set, we remove References: as they're likely invalid;
-   * we can simply compare strings as we don't generate References for
-   * multiple Message-Ids in IRT anyways */
+    stat(mutt_b2s(&sctx->tempfile), &st);
+    if (sctx->tempfile_mtime == st.st_mtime)
+    {
+      mutt_debug(LL_DEBUG1, "temp file was not modified\n");
+      /* the file has not changed! */
+      mutt_file_unlink(mutt_b2s(&sctx->tempfile));
+      goto cleanup;
+    }
+
+    mutt_file_unlink(filename);
+    mutt_list_free(&sctx->e_templ->env->userhdrs);
+
+    /* Read the temp file back in */
+    fp_in = fopen(mutt_b2s(&sctx->tempfile), "r");
+    if (!fp_in)
+    {
+      mutt_perror(mutt_b2s(&sctx->tempfile));
+      goto cleanup;
+    }
+
+    fp_out = mutt_file_fopen(filename, "w");
+    if (!fp_out)
+    {
+      /* intentionally leak a possible temporary file here */
+      mutt_file_fclose(&fp_in);
+      mutt_perror(filename);
+      goto cleanup;
+    }
+
+    n = mutt_rfc822_read_header(fp_in, NULL, true, false);
+    while ((i = fread(buf, 1, sizeof(buf), fp_in)) > 0)
+      fwrite(buf, 1, i, fp_out);
+    mutt_file_fclose(&fp_out);
+    mutt_file_fclose(&fp_in);
+    mutt_file_unlink(mutt_b2s(&sctx->tempfile));
+
+    /* in case the user modifies/removes the In-Reply-To header with
+     * $edit_headers set, we remove References: as they're likely invalid;
+     * we can simply compare strings as we don't generate References for
+     * multiple Message-Ids in IRT anyways */
 #ifdef USE_NNTP
-  if (!OptNewsSend)
+    if (!OptNewsSend)
 #endif
-  {
-    if (!STAILQ_EMPTY(&e->env->in_reply_to) &&
-        (STAILQ_EMPTY(&n->in_reply_to) ||
-         (mutt_str_strcmp(STAILQ_FIRST(&n->in_reply_to)->data,
-                          STAILQ_FIRST(&e->env->in_reply_to)->data) != 0)))
     {
-      mutt_list_free(&e->env->references);
-    }
-  }
-
-  /* restore old info. */
-  mutt_list_free(&n->references);
-  STAILQ_SWAP(&n->references, &e->env->references, ListNode);
-
-  mutt_env_free(&e->env);
-  e->env = n;
-  n = NULL;
-
-  mutt_expand_aliases_env(e->env);
-
-  /* search through the user defined headers added to see if
-   * fcc: or attach: or pgp: was specified */
-
-  struct ListNode *np = NULL, *tmp = NULL;
-  STAILQ_FOREACH_SAFE(np, &e->env->userhdrs, entries, tmp)
-  {
-    bool keep = true;
-    size_t plen;
-
-    if ((plen = mutt_str_startswith(np->data, "fcc:", CASE_IGNORE)))
-    {
-      p = mutt_str_skip_email_wsp(np->data + plen);
-      if (*p)
+      if (!STAILQ_EMPTY(&sctx->e_templ->env->in_reply_to) &&
+          (STAILQ_EMPTY(&n->in_reply_to) ||
+          (mutt_str_strcmp(STAILQ_FIRST(&n->in_reply_to)->data,
+                            STAILQ_FIRST(&sctx->e_templ->env->in_reply_to)->data) != 0)))
       {
-        mutt_buffer_strcpy(&sctx->fcc, p);
-        mutt_buffer_pretty_mailbox(&sctx->fcc);
+        mutt_list_free(&sctx->e_templ->env->references);
       }
-      keep = false;
     }
-    else if ((plen = mutt_str_startswith(np->data, "attach:", CASE_IGNORE)))
-    {
-      struct Body *body2 = NULL;
-      struct Body *parts = NULL;
 
-      p = mutt_str_skip_email_wsp(np->data + plen);
-      if (*p)
+    /* restore old info. */
+    mutt_list_free(&n->references);
+    STAILQ_SWAP(&n->references, &sctx->e_templ->env->references, ListNode);
+
+    mutt_env_free(&sctx->e_templ->env);
+    sctx->e_templ->env = n;
+    n = NULL;
+
+    mutt_expand_aliases_env(sctx->e_templ->env);
+
+    /* search through the user defined headers added to see if
+     * fcc: or attach: or pgp: was specified */
+
+    struct ListNode *np = NULL, *tmp = NULL;
+    STAILQ_FOREACH_SAFE(np, &sctx->e_templ->env->userhdrs, entries, tmp)
+    {
+      bool keep = true;
+      size_t plen;
+
+      if ((plen = mutt_str_startswith(np->data, "fcc:", CASE_IGNORE)))
       {
-        mutt_buffer_reset(path);
-        for (; (p[0] != '\0') && (p[0] != ' ') && (p[0] != '\t'); p++)
+        p = mutt_str_skip_email_wsp(np->data + plen);
+        if (*p)
         {
-          if (p[0] == '\\')
+          mutt_buffer_strcpy(&sctx->fcc, p);
+          mutt_buffer_pretty_mailbox(&sctx->fcc);
+        }
+        keep = false;
+      }
+      else if ((plen = mutt_str_startswith(np->data, "attach:", CASE_IGNORE)))
+      {
+        struct Body *body2 = NULL;
+        struct Body *parts = NULL;
+
+        p = mutt_str_skip_email_wsp(np->data + plen);
+        if (*p)
+        {
+          struct Buffer *path = mutt_buffer_pool_get();
+          for (; (p[0] != '\0') && (p[0] != ' ') && (p[0] != '\t'); p++)
           {
-            if (p[1] == '\0')
-              break;
-            p++;
+            if (p[0] == '\\')
+            {
+              if (p[1] == '\0')
+                break;
+              p++;
+            }
+            mutt_buffer_addch(path, *p);
           }
-          mutt_buffer_addch(path, *p);
-        }
-        p = mutt_str_skip_email_wsp(p);
+          p = mutt_str_skip_email_wsp(p);
 
-        mutt_buffer_expand_path(path);
-        body2 = mutt_make_file_attach(mutt_b2s(path));
-        if (body2)
-        {
-          body2->description = mutt_str_strdup(p);
-          for (parts = e->content; parts->next; parts = parts->next)
-            ; // do nothing
+          mutt_buffer_expand_path(path);
+          body2 = mutt_make_file_attach(mutt_b2s(path));
+          if (body2)
+          {
+            body2->description = mutt_str_strdup(p);
+            for (parts = sctx->e_templ->content; parts->next; parts = parts->next)
+              ; // do nothing
 
-          parts->next = body2;
+            parts->next = body2;
+          }
+          else
+          {
+            mutt_buffer_pretty_mailbox(path);
+            mutt_error(_("%s: unable to attach file"), mutt_b2s(path));
+          }
+          mutt_buffer_pool_release(&path);
         }
-        else
-        {
-          mutt_buffer_pretty_mailbox(path);
-          mutt_error(_("%s: unable to attach file"), mutt_b2s(path));
-        }
+        keep = false;
       }
-      keep = false;
-    }
-    else if (((WithCrypto & APPLICATION_PGP) != 0) &&
-             (plen = mutt_str_startswith(np->data, "pgp:", CASE_IGNORE)))
-    {
-      e->security = mutt_parse_crypt_hdr(np->data + plen, false, APPLICATION_PGP, sctx);
-      if (e->security)
-        e->security |= APPLICATION_PGP;
-      keep = false;
-    }
+      else if (((WithCrypto & APPLICATION_PGP) != 0) &&
+              (plen = mutt_str_startswith(np->data, "pgp:", CASE_IGNORE)))
+      {
+        sctx->e_templ->security = mutt_parse_crypt_hdr(np->data + plen, false, APPLICATION_PGP, sctx);
+        if (sctx->e_templ->security)
+          sctx->e_templ->security |= APPLICATION_PGP;
+        keep = false;
+      }
 
-    if (!keep)
-    {
-      STAILQ_REMOVE(&e->env->userhdrs, np, ListNode, entries);
-      FREE(&np->data);
-      FREE(&np);
+      if (!keep)
+      {
+        STAILQ_REMOVE(&sctx->e_templ->env->userhdrs, np, ListNode, entries);
+        FREE(&np->data);
+        FREE(&np);
+      }
     }
   }
+
+  rc = 0;
 
 cleanup:
-  mutt_buffer_pool_release(&path);
+  mutt_buffer_dealloc(&sctx->tempfile);
+  return rc;
 }
 
 /**

@@ -539,7 +539,7 @@ int mutt_builtin_editor(struct SendContext *sctx)
           if (C_EditHeaders)
           {
             mutt_env_to_local(e_templ->env);
-            mutt_edit_headers(NONULL(C_Visual), sctx);
+            mutt_edit_headers(NONULL(C_Visual), sctx, 0);
             if (mutt_env_to_intl(e_templ->env, &tag, &err))
               mutt_window_printf(_("Bad IDN in '%s': '%s'"), tag, err);
             /* tag is a statically allocated string and should not be freed */
