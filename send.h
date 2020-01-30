@@ -140,5 +140,6 @@ void            mutt_make_post_indent(struct Mailbox *m, struct Email *e, FILE *
 struct Address *mutt_remove_xrefs(struct Address *a, struct Address *b);
 int             mutt_resend_message(FILE *fp, struct Context *ctx, struct Email *e_cur);
 void            mutt_set_followup_to(struct Envelope *e);
+int             mutt_send_message_resume(struct SendContext *sctx);
 
 #endif /* MUTT_SEND_H */

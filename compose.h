@@ -25,15 +25,13 @@
 
 struct Buffer;
 struct Email;
+struct SendContext;
 
 /* These Config Variables are only used in compose.c */
 extern char *        C_ComposeFormat;
 extern char *        C_Ispell;
 extern unsigned char C_Postpone;
 
-/* flags for mutt_compose_menu() */
-#define MUTT_COMPOSE_NOFREEHEADER (1 << 0)
-
-int mutt_compose_menu(struct Email *e, struct Buffer *fcc, struct Email *e_cur, int flags);
+int mutt_compose_menu(struct SendContext *sctx);
 
 #endif /* MUTT_COMPOSE_H */

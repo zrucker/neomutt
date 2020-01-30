@@ -68,6 +68,7 @@
 #include "protos.h"
 #include "recvattach.h"
 #include "rfc3676.h"
+#include "send.h"
 #include "sendlib.h"
 #include "sort.h"
 #include "ncrypt/lib.h"
@@ -1310,7 +1311,7 @@ static int mutt_dlg_compose_observer(struct NotifyCallback *nc)
  * @retval  0 Normal exit
  * @retval -1 Abort message
  */
-int mutt_compose_menu(struct Email *e, struct Buffer *fcc, struct Email *e_cur, int flags)
+int mutt_compose_menu(struct SendContext *sctx)
 {
   char helpstr[1024]; // This isn't copied by the help bar
   char buf[PATH_MAX];
@@ -1322,6 +1323,8 @@ int mutt_compose_menu(struct Email *e, struct Buffer *fcc, struct Email *e_cur, 
   STAILQ_INIT(&redraw.to_list);
   STAILQ_INIT(&redraw.cc_list);
   STAILQ_INIT(&redraw.bcc_list);
+
+  struct Email *e = sctx->e_templ;
 
   struct ComposeRedrawData *rd = &redraw;
 #ifdef USE_NNTP
@@ -1360,7 +1363,7 @@ int mutt_compose_menu(struct Email *e, struct Buffer *fcc, struct Email *e_cur, 
   notify_set_parent(ebar->notify, dlg->notify);
 
   rd->email = e;
-  rd->fcc = fcc;
+  rd->fcc = &sctx->fcc;
   rd->win_envelope = envelope;
   rd->win_cbar = ebar;
   rd->win_attach = attach;
@@ -1542,11 +1545,11 @@ int mutt_compose_menu(struct Email *e, struct Buffer *fcc, struct Email *e_cur, 
         break;
 
       case OP_COMPOSE_EDIT_FCC:
-        mutt_buffer_copy(&fname, fcc);
+        mutt_buffer_copy(&fname, &sctx->fcc);
         if (mutt_buffer_get_field(Prompts[HDR_FCC], &fname, MUTT_FILE | MUTT_CLEAR) == 0)
         {
-          mutt_buffer_copy(fcc, &fname);
-          mutt_buffer_pretty_mailbox(fcc);
+          mutt_buffer_copy(&sctx->fcc, &fname);
+          mutt_buffer_pretty_mailbox(&sctx->fcc);
           fcc_set = true;
           redraw_env = true;
         }
@@ -1574,7 +1577,7 @@ int mutt_compose_menu(struct Email *e, struct Buffer *fcc, struct Email *e_cur, 
           const char *tag = NULL;
           char *err = NULL;
           mutt_env_to_local(e->env);
-          mutt_edit_headers(NONULL(C_Editor), e->content->filename, e, fcc);
+          mutt_edit_headers(NONULL(C_Editor), e->content->filename, e, &sctx->fcc);
           if (mutt_env_to_intl(e->env, &tag, &err))
           {
             mutt_error(_("Bad IDN in '%s': '%s'"), tag, err);
@@ -1589,7 +1592,7 @@ int mutt_compose_menu(struct Email *e, struct Buffer *fcc, struct Email *e_cur, 
            * attachment list could change if the user invokes ~v to edit
            * the message with headers, in which we need to execute the
            * code below to regenerate the index array */
-          mutt_builtin_editor(e->content->filename, e, e_cur);
+          mutt_builtin_editor(e->content->filename, e, sctx->e_cur);
         }
 
         mutt_rfc3676_space_stuff(e);
@@ -2165,14 +2168,14 @@ int mutt_compose_menu(struct Email *e, struct Buffer *fcc, struct Email *e_cur, 
           break;
 #endif
 
-        if (!fcc_set && !mutt_buffer_is_empty(fcc))
+        if (!fcc_set && !mutt_buffer_is_empty(&sctx->fcc))
         {
           enum QuadOption ans =
               query_quadoption(C_Copy, _("Save a copy of this message?"));
           if (ans == MUTT_ABORT)
             break;
           else if (ans == MUTT_NO)
-            mutt_buffer_reset(fcc);
+            mutt_buffer_reset(&sctx->fcc);
         }
 
         loop = false;
@@ -2377,7 +2380,7 @@ int mutt_compose_menu(struct Email *e, struct Buffer *fcc, struct Email *e_cur, 
             if (actx->idx[i]->unowned)
               actx->idx[i]->content->unlink = false;
 
-          if (!(flags & MUTT_COMPOSE_NOFREEHEADER))
+          if (!(sctx->flags & SEND_NO_FREE_HEADER))
           {
             for (int i = 0; i < actx->idxlen; i++)
             {

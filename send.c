@@ -1858,7 +1858,6 @@ static int send_message_setup(struct SendContext *sctx, const char *tempfile,
   FILE *fp_tmp = NULL;
   struct Body *pbody = NULL;
   char *ctype = NULL;
-  char buf[1024];
 
 #ifdef USE_NNTP
   if (sctx->flags & SEND_NEWS)
@@ -1899,10 +1898,8 @@ static int send_message_setup(struct SendContext *sctx, const char *tempfile,
 
     if (sctx->flags == SEND_POSTPONED)
     {
-      int tmpflags = mutt_get_postponed(ctx, sctx->e_templ, &sctx->e_cur, &sctx->fcc);
-      if (tmpflags < 0)
+      if (mutt_get_postponed(ctx, sctx) < 0)
         goto cleanup;
-      sctx->flags |= tmpflags;
 #ifdef USE_NNTP
       /* If postponed message is a news article, it have
        * a "Newsgroups:" header line, then set appropriate flag.  */
@@ -1969,9 +1966,11 @@ static int send_message_setup(struct SendContext *sctx, const char *tempfile,
       }
       else
       {
-        mutt_mktemp(buf, sizeof(buf));
-        fp_tmp = mutt_file_fopen(buf, "w+");
-        sctx->e_templ->content->filename = mutt_str_strdup(buf);
+        struct Buffer *buf = mutt_buffer_pool_get();
+        mutt_buffer_mktemp(buf);
+        fp_tmp = mutt_file_fopen(mutt_b2s(buf), "w+");
+        sctx->e_templ->content->filename = mutt_str_strdup(mutt_b2s(buf));
+        mutt_buffer_pool_release(&buf);
       }
     }
     else
@@ -2410,9 +2409,7 @@ static int send_message_resume_compose_menu(struct SendContext *sctx)
   main_loop:
 
     mutt_buffer_pretty_mailbox(&sctx->fcc);
-    i = mutt_compose_menu(
-        sctx->e_templ, &sctx->fcc, sctx->e_cur,
-        ((sctx->flags & SEND_NO_FREE_HEADER) ? MUTT_COMPOSE_NOFREEHEADER : 0));
+    i = mutt_compose_menu(sctx);
     if (i == -1)
     {
 /* abort */
