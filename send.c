@@ -2175,8 +2175,7 @@ static int send_message_resume_first_edit(struct SendContext *sctx)
 
   if (sctx->flags & SEND_MAILX)
   {
-    if (mutt_builtin_editor(sctx->e_templ->content->filename, sctx->e_templ,
-                            sctx->e_cur) == -1)
+    if (mutt_builtin_editor(sctx) == -1)
       goto cleanup;
   }
   else if (!(sctx->flags & SEND_BATCH))
@@ -2205,12 +2204,11 @@ static int send_message_resume_first_edit(struct SendContext *sctx)
           goto cleanup;
       }
       else if (!C_Editor || (mutt_str_strcmp("builtin", C_Editor) == 0))
-        mutt_builtin_editor(sctx->e_templ->content->filename, sctx->e_templ, sctx->e_cur);
+        mutt_builtin_editor(sctx);
       else if (C_EditHeaders)
       {
         mutt_env_to_local(sctx->e_templ->env);
-        mutt_edit_headers(C_Editor, sctx->e_templ->content->filename,
-                          sctx->e_templ, &sctx->fcc);
+        mutt_edit_headers(C_Editor, sctx);
         mutt_env_to_intl(sctx->e_templ->env, NULL, NULL);
       }
       else

@@ -27,8 +27,9 @@ struct Buffer;
 struct Email;
 struct EmailList;
 struct Mailbox;
+struct SendContext;
 
-void mutt_edit_headers(const char *editor, const char *body, struct Email *e, struct Buffer *fcc);
+void mutt_edit_headers(const char *editor, struct SendContext *sctx);
 void mutt_label_hash_add(struct Mailbox *m, struct Email *e);
 void mutt_label_hash_remove(struct Mailbox *m, struct Email *e);
 int mutt_label_message(struct Mailbox *m, struct EmailList *el);

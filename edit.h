@@ -24,10 +24,11 @@
 #define MUTT_EDIT_H
 
 struct Email;
+struct SendContext;
 
 /* These Config Variables are only used in edit.c */
 extern char *C_Escape;
 
-int mutt_builtin_editor(const char *path, struct Email *e_new, struct Email *e_cur);
+int mutt_builtin_editor(struct SendContext *sctx);
 
 #endif /* MUTT_EDIT_H */

@@ -51,6 +51,7 @@
 #include "mutt_header.h"
 #include "muttlib.h"
 #include "protos.h"
+#include "send.h"
 
 /* These Config Variables are only used in edit.c */
 char *C_Escape; ///< Config: Escape character to use for functions in the built-in editor
@@ -398,7 +399,7 @@ static void be_edit_header(struct Envelope *e, bool force)
  * @retval  0 Success
  * @retval -1 Error
  */
-int mutt_builtin_editor(const char *path, struct Email *e_new, struct Email *e_cur)
+int mutt_builtin_editor(struct SendContext *sctx)
 {
   char **buf = NULL;
   int bufmax = 0, buflen = 0;
@@ -407,9 +408,13 @@ int mutt_builtin_editor(const char *path, struct Email *e_new, struct Email *e_c
   bool done = false;
   char *p = NULL;
 
+  struct Email *e_templ = sctx->e_templ;
+  struct Email *e_cur = sctx->e_cur;
+  const char *path = sctx->e_templ->content->filename;
+
   scrollok(stdscr, true);
 
-  be_edit_header(e_new->env, false);
+  be_edit_header(e_templ->env, false);
 
   mutt_window_addstr(_("(End message with a . on a line by itself)\n"));
 
@@ -442,15 +447,15 @@ int mutt_builtin_editor(const char *path, struct Email *e_new, struct Email *e_c
           mutt_window_addstr(_(EditorHelp2));
           break;
         case 'b':
-          mutt_addrlist_parse2(&e_new->env->bcc, p);
-          mutt_expand_aliases(&e_new->env->bcc);
+          mutt_addrlist_parse2(&e_templ->env->bcc, p);
+          mutt_expand_aliases(&e_templ->env->bcc);
           break;
         case 'c':
-          mutt_addrlist_parse2(&e_new->env->cc, p);
-          mutt_expand_aliases(&e_new->env->cc);
+          mutt_addrlist_parse2(&e_templ->env->cc, p);
+          mutt_expand_aliases(&e_templ->env->cc);
           break;
         case 'h':
-          be_edit_header(e_new->env, true);
+          be_edit_header(e_templ->env, true);
           break;
         case 'F':
         case 'f':
@@ -474,7 +479,7 @@ int mutt_builtin_editor(const char *path, struct Email *e_new, struct Email *e_c
         case 'p':
           mutt_window_addstr("-----\n");
           mutt_window_addstr(_("Message contains:\n"));
-          be_print_header(e_new->env);
+          be_print_header(e_templ->env);
           for (int i = 0; i < buflen; i++)
             mutt_window_addstr(buf[i]);
           /* L10N: This entry is shown AFTER the message content,
@@ -499,11 +504,11 @@ int mutt_builtin_editor(const char *path, struct Email *e_new, struct Email *e_c
             mutt_window_addstr(_("missing filename.\n"));
           break;
         case 's':
-          mutt_str_replace(&e_new->env->subject, p);
+          mutt_str_replace(&e_templ->env->subject, p);
           break;
         case 't':
-          mutt_addrlist_parse(&e_new->env->to, p);
-          mutt_expand_aliases(&e_new->env->to);
+          mutt_addrlist_parse(&e_templ->env->to, p);
+          mutt_expand_aliases(&e_templ->env->to);
           break;
         case 'u':
           if (buflen)
@@ -533,9 +538,9 @@ int mutt_builtin_editor(const char *path, struct Email *e_new, struct Email *e_c
 
           if (C_EditHeaders)
           {
-            mutt_env_to_local(e_new->env);
-            mutt_edit_headers(NONULL(C_Visual), path, e_new, NULL);
-            if (mutt_env_to_intl(e_new->env, &tag, &err))
+            mutt_env_to_local(e_templ->env);
+            mutt_edit_headers(NONULL(C_Visual), sctx);
+            if (mutt_env_to_intl(e_templ->env, &tag, &err))
               mutt_window_printf(_("Bad IDN in '%s': '%s'"), tag, err);
             /* tag is a statically allocated string and should not be freed */
             FREE(&err);

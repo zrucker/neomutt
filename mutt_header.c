@@ -44,6 +44,7 @@
 #include "muttlib.h"
 #include "options.h"
 #include "protos.h"
+#include "send.h"
 #include "sendlib.h"
 #include "ncrypt/lib.h"
 
@@ -165,8 +166,7 @@ int mutt_label_message(struct Mailbox *m, struct EmailList *el)
  * @param e      Email
  * @param fcc    Buffer for the fcc field
  */
-void mutt_edit_headers(const char *editor, const char *body, struct Email *e,
-                       struct Buffer *fcc)
+void mutt_edit_headers(const char *editor, struct SendContext *sctx)
 {
   char buf[1024];
   const char *p = NULL;
@@ -174,6 +174,9 @@ void mutt_edit_headers(const char *editor, const char *body, struct Email *e,
   struct Envelope *n = NULL;
   time_t mtime;
   struct stat st;
+
+  struct Email *e = sctx->e_templ;
+  const char *filename = e->content->filename;
 
   struct Buffer *path = mutt_buffer_pool_get();
   mutt_buffer_mktemp(path);
@@ -189,10 +192,10 @@ void mutt_edit_headers(const char *editor, const char *body, struct Email *e,
   fputc('\n', fp_out); /* tie off the header. */
 
   /* now copy the body of the message. */
-  FILE *fp_in = fopen(body, "r");
+  FILE *fp_in = fopen(filename, "r");
   if (!fp_in)
   {
-    mutt_perror(body);
+    mutt_perror(filename);
     mutt_file_fclose(&fp_out);
     goto cleanup;
   }
@@ -220,7 +223,7 @@ void mutt_edit_headers(const char *editor, const char *body, struct Email *e,
     goto cleanup;
   }
 
-  mutt_file_unlink(body);
+  mutt_file_unlink(filename);
   mutt_list_free(&e->env->userhdrs);
 
   /* Read the temp file back in */
@@ -231,12 +234,12 @@ void mutt_edit_headers(const char *editor, const char *body, struct Email *e,
     goto cleanup;
   }
 
-  fp_out = mutt_file_fopen(body, "w");
+  fp_out = mutt_file_fopen(filename, "w");
   if (!fp_out)
   {
     /* intentionally leak a possible temporary file here */
     mutt_file_fclose(&fp_in);
-    mutt_perror(body);
+    mutt_perror(filename);
     goto cleanup;
   }
 
@@ -283,13 +286,13 @@ void mutt_edit_headers(const char *editor, const char *body, struct Email *e,
     bool keep = true;
     size_t plen;
 
-    if (fcc && (plen = mutt_str_startswith(np->data, "fcc:", CASE_IGNORE)))
+    if ((plen = mutt_str_startswith(np->data, "fcc:", CASE_IGNORE)))
     {
       p = mutt_str_skip_email_wsp(np->data + plen);
       if (*p)
       {
-        mutt_buffer_strcpy(fcc, p);
-        mutt_buffer_pretty_mailbox(fcc);
+        mutt_buffer_strcpy(&sctx->fcc, p);
+        mutt_buffer_pretty_mailbox(&sctx->fcc);
       }
       keep = false;
     }
