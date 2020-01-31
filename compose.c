@@ -567,22 +567,26 @@ static int redraw_crypt_lines(struct ComposeRedrawData *rd, int row)
       (e->security & APPLICATION_PGP) && (e->security & SEC_SIGN))
   {
     draw_header(rd->win_envelope, row++, HDR_CRYPTINFO);
-    mutt_window_printf("%s", sctx->pgp_sign_as ? sctx->pgp_sign_as : _("<default>"));
+    mutt_window_printf("%s", sctx->pgp_sign_as ?
+                                 sctx->pgp_sign_as :
+                                 (C_PgpSignAs ? C_PgpSignAs : _("<default>")));
   }
 
   if (((WithCrypto & APPLICATION_SMIME) != 0) &&
       (e->security & APPLICATION_SMIME) && (e->security & SEC_SIGN))
   {
     draw_header(rd->win_envelope, row++, HDR_CRYPTINFO);
-    mutt_window_printf("%s", sctx->smime_default_key ? sctx->smime_default_key :
-                                                       _("<default>"));
+    mutt_window_printf("%s", sctx->smime_default_key ?
+                                 sctx->smime_default_key :
+                                 (C_SmimeSignAs ? C_SmimeSignAs : _("<default>")));
   }
 
   if (((WithCrypto & APPLICATION_SMIME) != 0) && (e->security & APPLICATION_SMIME) &&
-      (e->security & SEC_ENCRYPT) && sctx->smime_crypt_alg)
+      (e->security & SEC_ENCRYPT) && (C_SmimeEncryptWith || sctx->smime_crypt_alg))
   {
     draw_floating(rd->win_envelope, 40, row - 1, _("Encrypt with: "));
     mutt_window_printf("%s", NONULL(sctx->smime_crypt_alg));
+    mutt_window_printf("%s", sctx->smime_crypt_alg ? sctx->smime_crypt_alg : C_SmimeEncryptWith);
   }
 
 #ifdef USE_AUTOCRYPT

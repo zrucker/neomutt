@@ -1579,11 +1579,13 @@ static bool search_attach_keyword(char *filename)
  * @retval  0 Success
  * @retval -1 Error
  */
-static int save_fcc(struct Email *e, struct Buffer *fcc, struct Body *clear_content,
+static int save_fcc(struct SendContext *sctx, struct Body *clear_content,
                     char *pgpkeylist, SendFlags flags, char **finalpath)
 {
   int rc = 0;
   struct Body *save_content = NULL;
+  struct Email *e = sctx->e_templ;
+  struct Buffer *fcc = &sctx->fcc;
 
   mutt_buffer_expand_path(fcc);
 
@@ -1656,7 +1658,7 @@ static int save_fcc(struct Email *e, struct Buffer *fcc, struct Body *clear_cont
           /* this means writing only the main part */
           e->content = clear_content->parts;
 
-          if (mutt_protect(e, pgpkeylist, false) == -1)
+          if (mutt_protect(sctx, pgpkeylist, false) == -1)
           {
             /* we can't do much about it at this point, so
            * fallback to saving the whole thing to fcc */
@@ -1759,8 +1761,7 @@ full_fcc:
  * @retval  0 Success
  * @retval -1 Error
  */
-static int postpone_message(struct Email *e_post, struct Email *e_cur,
-                            const char *fcc, SendFlags flags)
+static int postpone_message(struct SendContext *sctx)
 {
   char *pgpkeylist = NULL;
   char *encrypt_as = NULL;
@@ -1771,6 +1772,11 @@ static int postpone_message(struct Email *e_post, struct Email *e_cur,
     mutt_error(_("Can't postpone.  $postponed is unset"));
     return -1;
   }
+
+  struct Email *e_post = sctx->e_templ;
+  struct Email *e_cur = sctx->e_cur;
+  const char *fcc = mutt_b2s(&sctx->fcc);
+  int flags = sctx->flags;
 
   if (e_post->content->next)
     e_post->content = mutt_make_multipart(e_post->content);
@@ -1805,7 +1811,7 @@ static int postpone_message(struct Email *e_post, struct Email *e_cur,
     {
       pgpkeylist = mutt_str_strdup(encrypt_as);
       clear_content = e_post->content;
-      if (mutt_protect(e_post, pgpkeylist, true) == -1)
+      if (mutt_protect(sctx, pgpkeylist, true) == -1)
       {
         FREE(&pgpkeylist);
         e_post->content = mutt_remove_multipart(e_post->content);
@@ -2417,7 +2423,7 @@ static int send_message_resume_compose_menu(struct SendContext *sctx)
     }
     else if (i == 1)
     {
-      if (postpone_message(sctx->e_templ, sctx->e_cur, mutt_b2s(&sctx->fcc), sctx->flags) != 0)
+      if (postpone_message(sctx) != 0)
         goto main_loop;
       mutt_message(_("Message postponed"));
       rc = 1;
@@ -2514,7 +2520,7 @@ static int send_message_resume_compose_menu(struct SendContext *sctx)
       clear_content = sctx->e_templ->content;
 
       if ((crypt_get_keys(sctx->e_templ, &pgpkeylist, 0) == -1) ||
-          (mutt_protect(sctx->e_templ, pgpkeylist, false) == -1))
+          (mutt_protect(sctx, pgpkeylist, false) == -1))
       {
         sctx->e_templ->content = mutt_remove_multipart(sctx->e_templ->content);
 
@@ -2545,7 +2551,7 @@ static int send_message_resume_compose_menu(struct SendContext *sctx)
   mutt_prepare_envelope(sctx->e_templ->env, true);
 
   if (C_FccBeforeSend)
-    save_fcc(sctx->e_templ, &sctx->fcc, clear_content, pgpkeylist, sctx->flags, &finalpath);
+    save_fcc(sctx, clear_content, pgpkeylist, sctx->flags, &finalpath);
 
   i = invoke_mta(sctx->e_templ);
   if (i < 0)
@@ -2587,7 +2593,7 @@ static int send_message_resume_compose_menu(struct SendContext *sctx)
   }
 
   if (!C_FccBeforeSend)
-    save_fcc(sctx->e_templ, &sctx->fcc, clear_content, pgpkeylist, sctx->flags, &finalpath);
+    save_fcc(sctx, clear_content, pgpkeylist, sctx->flags, &finalpath);
 
   if (!OptNoCurses && !(sctx->flags & SEND_MAILX))
   {
