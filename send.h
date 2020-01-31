@@ -104,6 +104,10 @@ struct SendContext
   struct Buffer fcc;
 
   char *ctx_realpath;
+
+  char *pgp_sign_as;
+  char *smime_default_key;
+  char *smime_crypt_alg;
 };
 
 typedef uint16_t SendFlags;             ///< Flags for mutt_send_message(), e.g. #SEND_REPLY

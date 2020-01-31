@@ -338,7 +338,7 @@ void mutt_edit_headers(const char *editor, struct SendContext *sctx)
     else if (((WithCrypto & APPLICATION_PGP) != 0) &&
              (plen = mutt_str_startswith(np->data, "pgp:", CASE_IGNORE)))
     {
-      e->security = mutt_parse_crypt_hdr(np->data + plen, false, APPLICATION_PGP);
+      e->security = mutt_parse_crypt_hdr(np->data + plen, false, APPLICATION_PGP, sctx);
       if (e->security)
         e->security |= APPLICATION_PGP;
       keep = false;

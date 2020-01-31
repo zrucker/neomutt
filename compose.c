@@ -111,6 +111,7 @@ struct ComposeRedrawData
 {
   struct Email *email;
   struct Buffer *fcc;
+  struct SendContext *sctx;
 
   struct ListHead to_list;
   struct ListHead cc_list;
@@ -511,6 +512,7 @@ static int calc_envelope(struct ComposeRedrawData *rd)
 static int redraw_crypt_lines(struct ComposeRedrawData *rd, int row)
 {
   struct Email *e = rd->email;
+  struct SendContext *sctx = rd->sctx;
 
   draw_header(rd->win_envelope, row++, HDR_CRYPT);
 
@@ -565,21 +567,22 @@ static int redraw_crypt_lines(struct ComposeRedrawData *rd, int row)
       (e->security & APPLICATION_PGP) && (e->security & SEC_SIGN))
   {
     draw_header(rd->win_envelope, row++, HDR_CRYPTINFO);
-    mutt_window_printf("%s", C_PgpSignAs ? C_PgpSignAs : _("<default>"));
+    mutt_window_printf("%s", sctx->pgp_sign_as ? sctx->pgp_sign_as : _("<default>"));
   }
 
   if (((WithCrypto & APPLICATION_SMIME) != 0) &&
       (e->security & APPLICATION_SMIME) && (e->security & SEC_SIGN))
   {
     draw_header(rd->win_envelope, row++, HDR_CRYPTINFO);
-    mutt_window_printf("%s", C_SmimeSignAs ? C_SmimeSignAs : _("<default>"));
+    mutt_window_printf("%s", sctx->smime_default_key ? sctx->smime_default_key :
+                                                       _("<default>"));
   }
 
   if (((WithCrypto & APPLICATION_SMIME) != 0) && (e->security & APPLICATION_SMIME) &&
-      (e->security & SEC_ENCRYPT) && C_SmimeEncryptWith)
+      (e->security & SEC_ENCRYPT) && sctx->smime_crypt_alg)
   {
     draw_floating(rd->win_envelope, 40, row - 1, _("Encrypt with: "));
-    mutt_window_printf("%s", NONULL(C_SmimeEncryptWith));
+    mutt_window_printf("%s", NONULL(sctx->smime_crypt_alg));
   }
 
 #ifdef USE_AUTOCRYPT
@@ -1364,6 +1367,7 @@ int mutt_compose_menu(struct SendContext *sctx)
 
   rd->email = e;
   rd->fcc = &sctx->fcc;
+  rd->sctx = sctx;
   rd->win_envelope = envelope;
   rd->win_cbar = ebar;
   rd->win_attach = attach;

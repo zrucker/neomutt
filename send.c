@@ -161,6 +161,10 @@ static void send_ctx_free(struct SendContext **ptr)
   mutt_buffer_dealloc(&sctx->fcc);
   FREE(&sctx->ctx_realpath);
 
+  FREE(&sctx->pgp_sign_as);
+  FREE(&sctx->smime_default_key);
+  FREE(&sctx->smime_crypt_alg);
+
   FREE(ptr);
 }
 
@@ -1852,7 +1856,7 @@ static int postpone_message(struct Email *e_post, struct Email *e_cur,
  * send_message_setup - XXX
  */
 static int send_message_setup(struct SendContext *sctx, const char *tempfile,
-                              struct Context *ctx, char **pgp_signas, char **smime_signas)
+                              struct Context *ctx)
 {
   int rc = -1;
   FILE *fp_tmp = NULL;
@@ -1878,14 +1882,6 @@ static int send_message_setup(struct SendContext *sctx, const char *tempfile,
 
     if (ans == MUTT_YES)
       sctx->flags |= SEND_POSTPONED;
-  }
-
-  if (sctx->flags & SEND_POSTPONED)
-  {
-    if (WithCrypto & APPLICATION_PGP)
-      *pgp_signas = mutt_str_strdup(C_PgpSignAs);
-    if (WithCrypto & APPLICATION_SMIME)
-      *smime_signas = mutt_str_strdup(C_SmimeSignAs);
   }
 
   /* Delay expansion of aliases until absolutely necessary--shouldn't
@@ -2676,8 +2672,6 @@ cleanup:
 int mutt_send_message(SendFlags flags, struct Email *e_templ, const char *tempfile,
                       struct Context *ctx, struct EmailList *el)
 {
-  char *pgp_signas = NULL;
-  char *smime_signas = NULL;
   int rv = -1;
   int resume_rc;
 
@@ -2715,15 +2709,7 @@ int mutt_send_message(SendFlags flags, struct Email *e_templ, const char *tempfi
    * of the e_templ header don't disappear after returning!!!
    */
 
-  /* TODO:
-   * mutt_get_postponed() and edit headers set C_PgpSignAs/C_SmimeSignAs.
-   * these need to be set in the sctx instead, and the globals swapped
-   * out around the "post-composemenu-send" function.  Note that edit
-   * headers and get_postponed have different behavior for an empty
-   * value.
-   */
-
-  if (send_message_setup(sctx, tempfile, ctx, &pgp_signas, &smime_signas) < 0)
+  if (send_message_setup(sctx, tempfile, ctx) < 0)
     goto cleanup;
 
   resume_rc = mutt_send_message_resume(sctx);
@@ -2741,23 +2727,6 @@ int mutt_send_message(SendFlags flags, struct Email *e_templ, const char *tempfi
   rv = 0;
 
 cleanup:
-  /* TODO: this should be based on sctx and moved around
-   * the resumable edit/compose/send function
-   */
-  if (sctx->flags & SEND_POSTPONED)
-  {
-    if (WithCrypto & APPLICATION_PGP)
-    {
-      FREE(&C_PgpSignAs);
-      C_PgpSignAs = pgp_signas;
-    }
-    if (WithCrypto & APPLICATION_SMIME)
-    {
-      FREE(&C_SmimeSignAs);
-      C_SmimeSignAs = smime_signas;
-    }
-  }
-
   send_ctx_free(&sctx);
   return rv;
 }

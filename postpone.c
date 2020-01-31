@@ -450,14 +450,14 @@ int mutt_get_postponed(struct Context *ctx, struct SendContext *sctx)
               mutt_str_startswith(np->data, "X-Mutt-PGP:", CASE_MATCH)))
     {
       sctx->e_templ->security =
-          mutt_parse_crypt_hdr(strchr(np->data, ':') + 1, true, APPLICATION_PGP);
+          mutt_parse_crypt_hdr(strchr(np->data, ':') + 1, true, APPLICATION_PGP, sctx);
       sctx->e_templ->security |= APPLICATION_PGP;
     }
     else if (((WithCrypto & APPLICATION_SMIME) != 0) &&
              mutt_str_startswith(np->data, "X-Mutt-SMIME:", CASE_MATCH))
     {
       sctx->e_templ->security =
-          mutt_parse_crypt_hdr(strchr(np->data, ':') + 1, true, APPLICATION_SMIME);
+          mutt_parse_crypt_hdr(strchr(np->data, ':') + 1, true, APPLICATION_SMIME, sctx);
       sctx->e_templ->security |= APPLICATION_SMIME;
     }
 #ifdef MIXMASTER
@@ -498,7 +498,8 @@ int mutt_get_postponed(struct Context *ctx, struct SendContext *sctx)
  * @param crypt_app App, e.g. #APPLICATION_PGP
  * @retval num SecurityFlags, see #SecurityFlags
  */
-SecurityFlags mutt_parse_crypt_hdr(const char *p, bool set_empty_signas, SecurityFlags crypt_app)
+SecurityFlags mutt_parse_crypt_hdr(const char *p, bool set_empty_signas,
+                                   SecurityFlags crypt_app, struct SendContext *sctx)
 {
   char smime_cryptalg[1024] = { 0 };
   char sign_as[1024] = { 0 };
@@ -614,29 +615,20 @@ SecurityFlags mutt_parse_crypt_hdr(const char *p, bool set_empty_signas, Securit
 
   /* the cryptalg field must not be empty */
   if (((WithCrypto & APPLICATION_SMIME) != 0) && *smime_cryptalg)
-  {
-    struct Buffer errmsg = mutt_buffer_make(0);
-    int rc = cs_subset_str_string_set(NeoMutt->sub, "smime_encrypt_with",
-                                      smime_cryptalg, &errmsg);
-
-    if ((CSR_RESULT(rc) != CSR_SUCCESS) && !mutt_buffer_is_empty(&errmsg))
-      mutt_error("%s", mutt_b2s(&errmsg));
-
-    mutt_buffer_dealloc(&errmsg);
-  }
+    mutt_str_replace(&sctx->smime_crypt_alg, smime_cryptalg);
 
   /* Set {Smime,Pgp}SignAs, if desired. */
 
   if (((WithCrypto & APPLICATION_PGP) != 0) && (crypt_app == APPLICATION_PGP) &&
       (flags & SEC_SIGN) && (set_empty_signas || *sign_as))
   {
-    mutt_str_replace(&C_PgpSignAs, sign_as);
+    mutt_str_replace(&sctx->pgp_sign_as, sign_as);
   }
 
   if (((WithCrypto & APPLICATION_SMIME) != 0) && (crypt_app == APPLICATION_SMIME) &&
       (flags & SEC_SIGN) && (set_empty_signas || *sign_as))
   {
-    mutt_str_replace(&C_SmimeSignAs, sign_as);
+    mutt_str_replace(&sctx->smime_default_key, sign_as);
   }
 
   return flags;
