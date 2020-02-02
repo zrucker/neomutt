@@ -581,8 +581,12 @@ static int redraw_crypt_lines(struct ComposeRedrawData *rd, int row)
                                  (C_SmimeSignAs ? C_SmimeSignAs : _("<default>")));
   }
 
-  if (((WithCrypto & APPLICATION_SMIME) != 0) && (e->security & APPLICATION_SMIME) &&
-      (e->security & SEC_ENCRYPT) && (C_SmimeEncryptWith || sctx->smime_crypt_alg))
+  /* Note: the smime crypt alg can be cleared in ncrypt/smime.c.
+   * this causes a NULL sctx->smime_crypt_alg to override SmimeEncryptWith.
+   */
+  if (((WithCrypto & APPLICATION_SMIME) != 0) &&
+      (e->security & APPLICATION_SMIME) && (e->security & SEC_ENCRYPT) &&
+      (sctx->smime_crypt_alg || (!sctx->smime_crypt_alg_cleared && C_SmimeEncryptWith)))
   {
     draw_floating(rd->win_envelope, 40, row - 1, _("Encrypt with: "));
     mutt_window_printf("%s", NONULL(sctx->smime_crypt_alg));
@@ -2480,7 +2484,7 @@ int mutt_compose_menu(struct SendContext *sctx)
           e->security |= APPLICATION_PGP;
           update_crypt_info(rd);
         }
-        e->security = crypt_pgp_send_menu(e);
+        crypt_pgp_send_menu(sctx);
         update_crypt_info(rd);
         mutt_message_hook(NULL, e, MUTT_SEND2_HOOK);
         redraw_env = true;
@@ -2514,7 +2518,7 @@ int mutt_compose_menu(struct SendContext *sctx)
           e->security |= APPLICATION_SMIME;
           update_crypt_info(rd);
         }
-        e->security = crypt_smime_send_menu(e);
+        crypt_smime_send_menu(sctx);
         update_crypt_info(rd);
         mutt_message_hook(NULL, e, MUTT_SEND2_HOOK);
         redraw_env = true;

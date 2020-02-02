@@ -108,6 +108,7 @@ struct SendContext
   char *pgp_sign_as;
   char *smime_default_key;
   char *smime_crypt_alg;
+  bool smime_crypt_alg_cleared : 1;
 };
 
 typedef uint16_t SendFlags;             ///< Flags for mutt_send_message(), e.g. #SEND_REPLY

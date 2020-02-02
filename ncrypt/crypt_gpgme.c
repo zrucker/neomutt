@@ -71,6 +71,7 @@
 #include "pager.h"
 #include "protos.h"
 #include "recvattach.h"
+#include "send.h"
 #include "sendlib.h"
 #include "sort.h"
 #include "state.h"
@@ -5599,13 +5600,15 @@ void smime_gpgme_init(void)
  * @param is_smime True if an SMIME message
  * @retval num Flags, e.g. #APPLICATION_SMIME | #SEC_ENCRYPT
  */
-static int gpgme_send_menu(struct Email *e, bool is_smime)
+static void gpgme_send_menu(struct SendContext *sctx, bool is_smime)
 {
   struct CryptKeyInfo *p = NULL;
   const char *prompt = NULL;
   const char *letters = NULL;
   const char *choices = NULL;
   int choice;
+
+  struct Email *e = sctx->e_templ;
 
   if (is_smime)
     e->security |= APPLICATION_SMIME;
@@ -5694,7 +5697,7 @@ static int gpgme_send_menu(struct Email *e, bool is_smime)
         {
           char input_signas[128];
           snprintf(input_signas, sizeof(input_signas), "0x%s", crypt_fpr_or_lkeyid(p));
-          mutt_str_replace(is_smime ? &C_SmimeDefaultKey : &C_PgpSignAs, input_signas);
+          mutt_str_replace(is_smime ? &sctx->smime_default_key : &sctx->pgp_sign_as, input_signas);
           crypt_key_free(&p);
 
           e->security |= SEC_SIGN;
@@ -5753,24 +5756,22 @@ static int gpgme_send_menu(struct Email *e, bool is_smime)
         break;
     }
   }
-
-  return e->security;
 }
 
 /**
  * pgp_gpgme_send_menu - Implements CryptModuleSpecs::send_menu()
  */
-int pgp_gpgme_send_menu(struct Email *e)
+void pgp_gpgme_send_menu(struct SendContext *sctx)
 {
-  return gpgme_send_menu(e, false);
+  gpgme_send_menu(sctx, false);
 }
 
 /**
  * smime_gpgme_send_menu - Implements CryptModuleSpecs::send_menu()
  */
-int smime_gpgme_send_menu(struct Email *e)
+void smime_gpgme_send_menu(struct SendContext *sctx)
 {
-  return gpgme_send_menu(e, true);
+  gpgme_send_menu(sctx, true);
 }
 
 /**

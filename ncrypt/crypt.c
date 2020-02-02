@@ -212,7 +212,7 @@ int mutt_protect(struct SendContext *sctx, char *keylist, bool postpone)
     orig_smime_sign_as = mutt_str_strdup(C_SmimeSignAs);
     mutt_str_replace(&C_SmimeSignAs, sctx->smime_default_key);
   }
-  if (sctx->smime_crypt_alg)
+  if (sctx->smime_crypt_alg || sctx->smime_crypt_alg_cleared)
   {
     orig_smime_crypt_alg = mutt_str_strdup(C_SmimeEncryptWith);
     mutt_str_replace(&C_SmimeEncryptWith, sctx->smime_crypt_alg);
@@ -439,7 +439,7 @@ cleanup:
     mutt_str_replace(&C_PgpSignAs, orig_pgp_sign_as);
   if (sctx->smime_default_key)
     mutt_str_replace(&C_SmimeSignAs, orig_smime_sign_as);
-  if (sctx->smime_crypt_alg)
+  if (sctx->smime_crypt_alg || sctx->smime_crypt_alg_cleared)
     mutt_str_replace(&C_SmimeEncryptWith, orig_smime_crypt_alg);
 
   return rc;

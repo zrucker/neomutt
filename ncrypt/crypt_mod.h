@@ -34,6 +34,7 @@ struct Body;
 struct Email;
 struct Envelope;
 struct Mailbox;
+struct SendContext;
 struct State;
 
 /**
@@ -133,9 +134,8 @@ struct CryptModuleSpecs
   /**
    * send_menu - Ask the user whether to sign and/or encrypt the email
    * @param e Email
-   * @retval num Flags, e.g. #APPLICATION_PGP | #SEC_ENCRYPT
    */
-  int (*send_menu)(struct Email *e);
+  void (*send_menu)(struct SendContext *sctx);
 
   /**
    * set_sender - Set the sender of the email

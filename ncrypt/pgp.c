@@ -58,6 +58,7 @@
 #include "pgpinvoke.h"
 #include "pgpkey.h"
 #include "pgpmicalg.h"
+#include "send.h"
 #include "sendlib.h"
 #include "state.h"
 #ifdef CRYPT_BACKEND_CLASSIC_PGP
@@ -1843,7 +1844,7 @@ cleanup:
 /**
  * pgp_class_send_menu - Implements CryptModuleSpecs::send_menu()
  */
-int pgp_class_send_menu(struct Email *e)
+void pgp_class_send_menu(struct SendContext *sctx)
 {
   struct PgpKeyInfo *p = NULL;
   const char *prompt = NULL;
@@ -1852,8 +1853,10 @@ int pgp_class_send_menu(struct Email *e)
   char promptbuf[1024];
   int choice;
 
+  struct Email *e = sctx->e_templ;
+
   if (!(WithCrypto & APPLICATION_PGP))
-    return e->security;
+    return;
 
   /* If autoinline and no crypto options set, then set inline. */
   if (C_PgpAutoinline &&
@@ -1973,7 +1976,7 @@ int pgp_class_send_menu(struct Email *e)
         {
           char input_signas[128];
           snprintf(input_signas, sizeof(input_signas), "0x%s", pgp_fpr_or_lkeyid(p));
-          mutt_str_replace(&C_PgpSignAs, input_signas);
+          mutt_str_replace(&sctx->pgp_sign_as, input_signas);
           pgp_key_free(&p);
 
           e->security |= SEC_SIGN;
@@ -2022,6 +2025,4 @@ int pgp_class_send_menu(struct Email *e)
         break;
     }
   }
-
-  return e->security;
 }
