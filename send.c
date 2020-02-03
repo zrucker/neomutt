@@ -1685,7 +1685,7 @@ full_fcc:
      * the From_ line contains the current time instead of when the
      * message was first postponed.  */
     e->received = mutt_date_epoch();
-    rc = mutt_write_multiple_fcc(mutt_b2s(fcc), e, NULL, false, NULL, finalpath);
+    rc = mutt_write_multiple_fcc(mutt_b2s(fcc), sctx, NULL, false, NULL, finalpath);
     while (rc && !(flags & SEND_BATCH))
     {
       mutt_clear_error();
@@ -1713,7 +1713,7 @@ full_fcc:
           /* fall through */
 
         case 1: /* (r)etry */
-          rc = mutt_write_multiple_fcc(mutt_b2s(fcc), e, NULL, false, NULL, finalpath);
+          rc = mutt_write_multiple_fcc(mutt_b2s(fcc), sctx, NULL, false, NULL, finalpath);
           break;
 
         case -1: /* abort */
@@ -1834,7 +1834,7 @@ static int postpone_message(struct SendContext *sctx)
   mutt_prepare_envelope(e_post->env, false);
   mutt_env_to_intl(e_post->env, NULL, NULL); /* Handle bad IDNAs the next time. */
 
-  if (mutt_write_fcc(NONULL(C_Postponed), e_post,
+  if (mutt_write_fcc(NONULL(C_Postponed), sctx,
                      (e_cur && (flags & SEND_REPLY)) ? e_cur->env->message_id : NULL,
                      true, fcc, NULL) < 0)
   {

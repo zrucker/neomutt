@@ -3215,8 +3215,8 @@ static void set_noconv_flags(struct Body *b, bool flag)
  * @retval  0 Success
  * @retval -1 Failure
  */
-int mutt_write_multiple_fcc(const char *path, struct Email *e, const char *msgid,
-                            bool post, char *fcc, char **finalpath)
+int mutt_write_multiple_fcc(const char *path, struct SendContext *sctx,
+                            const char *msgid, bool post, char *fcc, char **finalpath)
 {
   char fcc_tok[PATH_MAX];
   char fcc_expanded[PATH_MAX];
@@ -3229,7 +3229,7 @@ int mutt_write_multiple_fcc(const char *path, struct Email *e, const char *msgid
 
   mutt_debug(LL_DEBUG1, "Fcc: initial mailbox = '%s'\n", tok);
   /* mutt_expand_path already called above for the first token */
-  int status = mutt_write_fcc(tok, e, msgid, post, fcc, finalpath);
+  int status = mutt_write_fcc(tok, sctx, msgid, post, fcc, finalpath);
   if (status != 0)
     return status;
 
@@ -3243,7 +3243,7 @@ int mutt_write_multiple_fcc(const char *path, struct Email *e, const char *msgid
     mutt_str_strfcpy(fcc_expanded, tok, sizeof(fcc_expanded));
     mutt_expand_path(fcc_expanded, sizeof(fcc_expanded));
     mutt_debug(LL_DEBUG1, "     Additional mailbox expanded = '%s'\n", fcc_expanded);
-    status = mutt_write_fcc(fcc_expanded, e, msgid, post, fcc, finalpath);
+    status = mutt_write_fcc(fcc_expanded, sctx, msgid, post, fcc, finalpath);
     if (status != 0)
       return status;
   }
@@ -3262,7 +3262,7 @@ int mutt_write_multiple_fcc(const char *path, struct Email *e, const char *msgid
  * @retval  0 Success
  * @retval -1 Failure
  */
-int mutt_write_fcc(const char *path, struct Email *e, const char *msgid,
+int mutt_write_fcc(const char *path, struct SendContext *sctx, const char *msgid,
                    bool post, const char *fcc, char **finalpath)
 {
   struct Message *msg = NULL;
@@ -3273,6 +3273,8 @@ int mutt_write_fcc(const char *path, struct Email *e, const char *msgid,
   struct stat st;
   char buf[128];
   MsgOpenFlags onm_flags;
+
+  struct Email *e = sctx->e_templ;
 
   if (post)
     set_noconv_flags(e->content, true);
@@ -3358,8 +3360,8 @@ int mutt_write_fcc(const char *path, struct Email *e, const char *msgid,
     if (e->security & SEC_SIGN)
     {
       fputc('S', msg->fp);
-      if (C_PgpSignAs)
-        fprintf(msg->fp, "<%s>", C_PgpSignAs);
+      if (sctx->pgp_sign_as)
+        fprintf(msg->fp, "<%s>", sctx->pgp_sign_as);
     }
     if (e->security & SEC_INLINE)
       fputc('I', msg->fp);
@@ -3379,16 +3381,16 @@ int mutt_write_fcc(const char *path, struct Email *e, const char *msgid,
     if (e->security & SEC_ENCRYPT)
     {
       fputc('E', msg->fp);
-      if (C_SmimeEncryptWith)
-        fprintf(msg->fp, "C<%s>", C_SmimeEncryptWith);
+      if (sctx->smime_crypt_alg)
+        fprintf(msg->fp, "C<%s>", sctx->smime_crypt_alg);
     }
     if (e->security & SEC_OPPENCRYPT)
       fputc('O', msg->fp);
     if (e->security & SEC_SIGN)
     {
       fputc('S', msg->fp);
-      if (C_SmimeSignAs)
-        fprintf(msg->fp, "<%s>", C_SmimeSignAs);
+      if (sctx->smime_default_key)
+        fprintf(msg->fp, "<%s>", sctx->smime_default_key);
     }
     if (e->security & SEC_INLINE)
       fputc('I', msg->fp);
