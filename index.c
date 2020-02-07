@@ -717,7 +717,7 @@ static void change_folder_mailbox(struct Menu *menu, struct Mailbox *m, int *old
     return;
 
   /* keepalive failure in mutt_enter_fname may kill connection. */
-  if (Context && Context->mailbox && (mutt_buffer_is_empty(&Context->mailbox->pathbuf)))
+  if (Context && Context->mailbox && !Context->mailbox->path->orig)
     ctx_free(&Context);
 
   if (Context && Context->mailbox)
@@ -727,8 +727,8 @@ static void change_folder_mailbox(struct Menu *menu, struct Mailbox *m, int *old
     int monitor_remove_rc = mutt_monitor_remove(NULL);
 #endif
 #ifdef USE_COMP_MBOX
-    if (Context->mailbox->compress_info && (Context->mailbox->realpath[0] != '\0'))
-      new_last_folder = mutt_str_dup(Context->mailbox->realpath);
+    if (Context->mailbox->compress_info && (Context->mailbox->path->canon[0] != '\0'))
+      new_last_folder = mutt_str_dup(Context->mailbox->path->canon);
     else
 #endif
       new_last_folder = mutt_str_dup(mailbox_path(Context->mailbox));
@@ -760,7 +760,7 @@ static void change_folder_mailbox(struct Menu *menu, struct Mailbox *m, int *old
   notify_observer_add(m->notify, mailbox_index_observer, &m);
   char *dup_path = mutt_str_dup(mailbox_path(m));
 
-  mutt_folder_hook(mailbox_path(m), m ? m->name : NULL);
+  mutt_folder_hook(mailbox_path(m), m->path->desc);
   if (m)
   {
     /* `m` is still valid, but we won't need the observer again before the end
@@ -1265,7 +1265,7 @@ int mutt_index_menu(struct MuttWindow *dlg)
       int check = mx_mbox_check(Context->mailbox);
       if (check < 0)
       {
-        if (!Context->mailbox || (mutt_buffer_is_empty(&Context->mailbox->pathbuf)))
+        if (!Context->mailbox || !Context->mailbox->path->orig)
         {
           /* fatal error occurred */
           ctx_free(&Context);
@@ -2115,8 +2115,7 @@ int mutt_index_menu(struct MuttWindow *dlg)
         }
 
         /* check for a fatal error, or all messages deleted */
-        if (Context && Context->mailbox &&
-            mutt_buffer_is_empty(&Context->mailbox->pathbuf))
+        if (Context && Context->mailbox && !Context->mailbox->path->orig)
           ctx_free(&Context);
 
         /* if we were in the pager, redisplay the message */
@@ -2353,7 +2352,7 @@ int mutt_index_menu(struct MuttWindow *dlg)
                                   (op == OP_MAIN_VFOLDER_FROM_QUERY_READONLY));
         if (m_query)
         {
-          m_query->name = query_unencoded;
+          m_query->path->desc = query_unencoded;
           query_unencoded = NULL;
         }
         else
@@ -2459,8 +2458,7 @@ int mutt_index_menu(struct MuttWindow *dlg)
           read_only = false;
         }
 
-        if (C_ChangeFolderNext && Context && Context->mailbox &&
-            !mutt_buffer_is_empty(&Context->mailbox->pathbuf))
+        if (C_ChangeFolderNext && Context && Context->mailbox)
         {
           mutt_buffer_strcpy(folderbuf, mailbox_path(Context->mailbox));
           mutt_buffer_pretty_mailbox(folderbuf);
@@ -2524,8 +2522,7 @@ int mutt_index_menu(struct MuttWindow *dlg)
           read_only = false;
         }
 
-        if (C_ChangeFolderNext && Context && Context->mailbox &&
-            !mutt_buffer_is_empty(&Context->mailbox->pathbuf))
+        if (C_ChangeFolderNext && Context && Context->mailbox)
         {
           mutt_buffer_strcpy(folderbuf, mailbox_path(Context->mailbox));
           mutt_buffer_pretty_mailbox(folderbuf);

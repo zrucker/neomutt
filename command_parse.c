@@ -889,13 +889,13 @@ enum CommandResult parse_mailboxes(struct Buffer *buf, struct Buffer *s,
 {
   while (MoreArgs(s))
   {
-    struct Mailbox *m = mailbox_new();
+    struct Mailbox *m = mailbox_new(NULL);
 
     if (data & MUTT_NAMED)
     {
       // This may be empty, e.g. `named-mailboxes "" +inbox`
       mutt_extract_token(buf, s, MUTT_TOKEN_NO_FLAGS);
-      m->name = mutt_buffer_strdup(buf);
+      mutt_str_replace(&m->path->desc, buf->data);
     }
 
     mutt_extract_token(buf, s, MUTT_TOKEN_NO_FLAGS);
@@ -906,12 +906,12 @@ enum CommandResult parse_mailboxes(struct Buffer *buf, struct Buffer *s,
       continue;
     }
 
-    mutt_buffer_strcpy(&m->pathbuf, buf->data);
+    mutt_str_replace(&m->path->orig, buf->data);
     /* int rc = */ mx_path_canon2(m, C_Folder);
 
     if (m->type <= MUTT_UNKNOWN)
     {
-      mutt_error("Unknown Mailbox: %s", m->realpath);
+      mutt_error("Unknown Mailbox: %s", m->path->canon);
       mailbox_free(&m);
       return MUTT_CMD_ERROR;
     }
@@ -927,7 +927,7 @@ enum CommandResult parse_mailboxes(struct Buffer *buf, struct Buffer *s,
 
     if (!new_account)
     {
-      struct Mailbox *m_old = mx_mbox_find(a, m->realpath);
+      struct Mailbox *m_old = mx_mbox_find(a, m->path->canon);
       if (m_old)
       {
         const bool show = (m_old->flags == MB_HIDDEN);
@@ -936,10 +936,10 @@ enum CommandResult parse_mailboxes(struct Buffer *buf, struct Buffer *s,
           m_old->flags = MB_NORMAL;
         }
 
-        const bool rename = (data & MUTT_NAMED) && !mutt_str_equal(m_old->name, m->name);
+        const bool rename = (data & MUTT_NAMED) && !mutt_str_equal(m_old->path->desc, m->path->desc);
         if (rename)
         {
-          mutt_str_replace(&m_old->name, m->name);
+          mutt_str_replace(&m_old->path->desc, m->path->desc);
         }
 
 #ifdef USE_SIDEBAR
@@ -1932,7 +1932,7 @@ enum CommandResult parse_unmailboxes(struct Buffer *buf, struct Buffer *s,
       /* Compare against path or desc? Ensure 'buf' is valid */
       if (!clear_all && tmp_valid &&
           !mutt_istr_equal(mutt_b2s(buf), mailbox_path(np->mailbox)) &&
-          !mutt_istr_equal(mutt_b2s(buf), np->mailbox->name))
+          !mutt_istr_equal(mutt_b2s(buf), np->mailbox->path->desc))
       {
         continue;
       }
