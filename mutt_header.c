@@ -217,7 +217,7 @@ int mutt_edit_headers(const char *editor, struct SendContext *sctx, int flags)
 
     if (flags == MUTT_EDIT_HEADERS_BACKGROUND)
     {
-      if (mutt_background_edit_file(sctx, editor, mutt_b2s(&sctx->tempfile)) == 0)
+      if (mutt_background_edit_file(sctx, editor, mutt_b2s(&sctx->tempfile)) == 2)
       {
         sctx->state = SEND_STATE_FIRST_EDIT_HEADERS;
         return 2;

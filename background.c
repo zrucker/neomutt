@@ -1,30 +1,39 @@
-/*
+/**
+ * @file
+ *
+ * @authors
  * Copyright(C) 1996-2000,2013 Michael R. Elkins <me@mutt.org>
  * Copyright(C) 2020 Kevin J. McCarthy <kevin@8t8.us>
  *
- *     This program is free software; you can redistribute it and/or modify
- *     it under the terms of the GNU General Public License as published by
- *     the Free Software Foundation; either version 2 of the License, or
- *    (at your option) any later version.
+ * @copyright
+ * This program is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 2 of the License, or (at your option) any later
+ * version.
  *
- *     This program is distributed in the hope that it will be useful,
- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *     GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+ * details.
  *
- *     You should have received a copy of the GNU General Public License
- *     along with this program; if not, write to the Free Software
- *     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "config.h"
+#include <errno.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "gui/lib.h"
 #include "mutt.h"
 #include "background.h"
+#include "globals.h"
+#include "mutt_menu.h"
+#include "opcodes.h"
+#include "protos.h"
 #include "send.h"
 
 struct SendContext *BackgroundProcess = NULL;
@@ -79,6 +88,110 @@ static pid_t mutt_background_run(const char *cmd)
   return (thepid);
 }
 
+static const struct Mapping LandingHelp[] = {
+  { N_("Exit"), OP_EXIT },
+  { N_("Redraw"), OP_REDRAW },
+  { N_("Help"), OP_HELP },
+  { NULL, 0 },
+};
+
+static void landing_redraw(struct Menu *menu)
+{
+  menu_redraw(menu);
+  mutt_window_mvaddstr(MuttIndexWindow, 0, 0, _("Waiting for editor to exit"));
+  mutt_window_mvaddstr(MuttIndexWindow, 1, 0, _("Hit <exit> to background editor."));
+}
+
+/* Displays the "waiting for editor" page.
+ * Returns:
+ *   2 if the the menu is exited, leaving the process backgrounded
+ *   0 when the waitpid() indicates the process has exited
+ */
+static int background_edit_landing_page(pid_t bg_pid)
+{
+  int done = 0, rc = 0, op;
+  short orig_timeout;
+  pid_t wait_rc;
+  struct Menu *menu;
+  char helpstr[256];
+
+  menu = mutt_menu_new(MENU_GENERIC);
+  menu->help = mutt_compile_help(helpstr, sizeof(helpstr), MENU_GENERIC, LandingHelp);
+  menu->pagelen = 0;
+  menu->title = _("Waiting for editor to exit");
+
+  mutt_menu_push_current(menu);
+
+  /* Reduce timeout so we poll with bg_pid every second */
+  orig_timeout = C_Timeout;
+  C_Timeout = 1;
+
+  while (!done)
+  {
+    wait_rc = waitpid(bg_pid, NULL, WNOHANG);
+    if ((wait_rc > 0) || ((wait_rc < 0) && (errno == ECHILD)))
+    {
+      rc = 0;
+      break;
+    }
+
+#if defined(USE_SLANG_CURSES) || defined(HAVE_RESIZETERM)
+    if (SigWinch)
+    {
+      SigWinch = 0;
+      mutt_resize_screen();
+      clearok(stdscr, TRUE);
+    }
+#endif
+
+    if (menu->redraw)
+      landing_redraw(menu);
+
+    op = km_dokey(MENU_GENERIC);
+
+    switch (op)
+    {
+      case OP_HELP:
+        mutt_help(MENU_GENERIC);
+        menu->redraw = REDRAW_FULL;
+        break;
+
+      case OP_EXIT:
+        rc = 2;
+        done = 1;
+        break;
+
+      case OP_REDRAW:
+        clearok(stdscr, TRUE);
+        menu->redraw = REDRAW_FULL;
+        break;
+    }
+  }
+
+  C_Timeout = orig_timeout;
+
+  mutt_menu_pop_current(menu);
+  mutt_menu_free(&menu);
+
+  return rc;
+}
+
+/* Runs editor in the background.
+ *
+ * After backgrounding the process, the background landing page will
+ * be displayed.  The user will have the opportunity to "quit" the
+ * landing page, exiting back to the index.  That will return 2
+ *(chosen for consistency with other backgrounding functions).
+ *
+ * If they leave the landing page up, it will detect when the editor finishes
+ * and return 0, indicating the callers should continue processing
+ * as if it were a foreground edit.
+ *
+ * Returns:
+ *      2  - the edit was backgrounded
+ *      0  - background edit completed.
+ *     -1  - an error occurred
+ */
 int mutt_background_edit_file(struct SendContext *sctx, const char *editor, const char *filename)
 {
   int rc = -1;
@@ -93,10 +206,12 @@ int mutt_background_edit_file(struct SendContext *sctx, const char *editor, cons
     goto cleanup;
   }
 
-  sctx->background_pid = pid;
-  BackgroundProcess = sctx;
-
-  rc = 0;
+  rc = background_edit_landing_page(pid);
+  if (rc == 2)
+  {
+    sctx->background_pid = pid;
+    BackgroundProcess = sctx;
+  }
 
 cleanup:
   mutt_buffer_pool_release(&cmd);

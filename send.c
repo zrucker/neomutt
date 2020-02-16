@@ -2268,7 +2268,7 @@ static int send_message_resume_first_edit(struct SendContext *sctx)
         {
           if (background_edit)
           {
-            if (mutt_background_edit_file(sctx, C_Editor, sctx->e_templ->content->filename) == 0)
+            if (mutt_background_edit_file(sctx, C_Editor, sctx->e_templ->content->filename) == 2)
             {
               sctx->state = SEND_STATE_FIRST_EDIT;
               return 2;

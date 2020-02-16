@@ -1589,7 +1589,7 @@ int mutt_compose_menu(struct SendContext *sctx)
 
           if ((sctx->flags & SEND_BACKGROUND_EDIT) && C_BackgroundEdit)
           {
-            if (mutt_background_edit_file(sctx, C_Editor, e->content->filename) == 0)
+            if (mutt_background_edit_file(sctx, C_Editor, e->content->filename) == 2)
             {
               sctx->state = SEND_STATE_COMPOSE_EDIT;
               loop = false;
