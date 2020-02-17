@@ -135,6 +135,91 @@ char *C_Signature; ///< Config: File containing a signature to append to all mai
 bool C_SigOnTop;   ///< Config: Insert the signature before the quoted text
 bool C_UseFrom;    ///< Config: Set the 'From' header for outgoing mail
 
+static struct SendScope *scope_new(void)
+{
+  struct SendScope *scope;
+
+  scope = mutt_mem_calloc(1, sizeof(struct SendScope));
+
+  return scope;
+}
+
+static void scope_free(struct SendScope **pscope)
+{
+  struct SendScope *scope;
+
+  if (!pscope || !*pscope)
+    return;
+
+  scope = *pscope;
+
+  FREE(&scope->outbox);
+  FREE(&scope->postponed);
+  mutt_addr_free(&scope->env_from);
+  mutt_addr_free(&scope->from);
+  FREE(&scope->sendmail);
+#if USE_SMTP
+  FREE(&scope->smtp_url);
+#endif
+  FREE(&scope->pgp_sign_as);
+  FREE(&scope->smime_default_key);
+  FREE(&scope->smime_crypt_alg);
+
+  FREE(pscope);
+}
+
+static struct SendScope *scope_save(void)
+{
+  struct SendScope *scope;
+
+  scope = scope_new();
+
+  memcpy(scope->options, Options, sizeof(scope->options));
+  memcpy(scope->quadoptions, QuadOptions, sizeof(scope->quadoptions));
+
+  scope->outbox = mutt_str_strdup(Record);
+  scope->postponed = mutt_str_strdup(C_Postponed);
+
+  scope->env_from = mutt_addr_copy_list(EnvelopeFromAddress, 0);
+  scope->from = mutt_addr_copy_list(C_From, 0);
+
+  scope->sendmail = mutt_str_strdup(C_Sendmail);
+#if USE_SMTP
+  scope->smtp_url = mutt_str_strdup(C_SmtpUrl);
+#endif
+  scope->pgp_sign_as = mutt_str_strdup(C_PgpSignAs);
+  scope->smime_default_key = mutt_str_strdup(C_SmimeSignAs);
+  scope->smime_crypt_alg = mutt_str_strdup(SmimeEncryptWith);
+
+  return scope;
+}
+
+static void scope_restore(struct SendScope *scope)
+{
+  if (!scope)
+    return;
+
+  memcpy(Options, scope->options, sizeof(scope->options));
+  memcpy(QuadOptions, scope->quadoptions, sizeof(scope->quadoptions));
+
+  mutt_str_replace(&Record, scope->outbox);
+  mutt_str_replace(&C_Postponed, scope->postponed);
+
+  mutt_addr_free(&EnvelopeFromAddress);
+  EnvelopeFromAddress = mutt_addr_copy_list(scope->env_from, 0);
+
+  mutt_addr_free(&C_From);
+  C_From = mutt_addr_copy_list(scope->from, 0);
+
+  mutt_str_replace(&C_Sendmail, scope->sendmail);
+#if USE_SMTP
+  mutt_str_replace(&C_SmtpUrl, scope->smtp_url);
+#endif
+  mutt_str_replace(&C_PgpSignAs, scope->pgp_sign_as);
+  mutt_str_replace(&C_SmimeSignAs, scope->smime_default_key);
+  mutt_str_replace(&SmimeEncryptWith, scope->smime_crypt_alg);
+}
+
 /**
  * send_ctx_new - XXX
  */
@@ -165,6 +250,9 @@ static void send_ctx_free(struct SendContext **ptr)
 
   FREE(&sctx->cur_message_id);
   FREE(&sctx->ctx_realpath);
+
+  scope_free(&sctx->global_scope);
+  scope_free(&sctx->local_scope);
 
   FREE(&sctx->pgp_sign_as);
   FREE(&sctx->smime_default_key);
@@ -2729,6 +2817,13 @@ int mutt_send_message_resume(struct SendContext *sctx)
 {
   int rv;
 
+  if (sctx->local_scope)
+  {
+    sctx->global_scope = scope_save();
+    scope_restore(sctx->local_scope);
+    scope_free(&sctx->local_scope);
+  }
+
   if (sctx->state <= SEND_STATE_FIRST_EDIT_HEADERS)
   {
     rv = send_message_resume_first_edit(sctx);
@@ -2739,6 +2834,14 @@ int mutt_send_message_resume(struct SendContext *sctx)
   rv = send_message_resume_compose_menu(sctx);
 
 cleanup:
+  if (rv == 2)
+    sctx->local_scope = scope_save();
+  if (sctx->global_scope)
+  {
+    scope_restore(sctx->global_scope);
+    scope_free(&sctx->global_scope);
+  }
+
   if (rv != 2)
     send_ctx_free(&sctx);
   return rv;
