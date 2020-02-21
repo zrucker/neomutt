@@ -126,6 +126,7 @@ mailcap.c
 maildir/config.c
 maildir/maildir.c
 maildir/mh.c
+maildir/path.c
 maildir/shared.c
 maillist.c
 main.c

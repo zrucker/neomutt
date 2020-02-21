@@ -30,6 +30,7 @@
  * | maildir/config.c  | @subpage maildir_config  |
  * | maildir/maildir.c | @subpage maildir_maildir |
  * | maildir/mh.c      | @subpage maildir_mh      |
+ * | maildir/path.c    | @subpage maildir_path    |
  * | maildir/shared.c  | @subpage maildir_shared  |
  */
 
@@ -40,6 +41,7 @@
 #include <stdio.h>
 #include "core/lib.h"
 #include "mx.h"
+#include "path.h"
 #include "hcache/lib.h"
 
 struct ConfigSet;
