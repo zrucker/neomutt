@@ -882,8 +882,8 @@ static void draw_sidebar(struct SidebarWindowData *wdata, struct MuttWindow *win
       col = div_width;
 
     mutt_window_move(win, col, row);
-    if (Context && Context->mailbox && (Context->mailbox->path->canon[0] != '\0') &&
-        mutt_str_equal(m->path->canon, Context->mailbox->path->canon))
+    if (Context && Context->mailbox && (Context->mailbox->path->orig[0] != '\0') &&
+        mutt_str_equal(m->path->orig, Context->mailbox->path->orig))
     {
       m->msg_unread = Context->mailbox->msg_unread;
       m->msg_count = Context->mailbox->msg_count;
