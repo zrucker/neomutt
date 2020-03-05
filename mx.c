@@ -49,6 +49,7 @@
 #include "copy.h"
 #include "hook.h"
 #include "keymap.h"
+#include "local.h"
 #include "mutt_globals.h"
 #include "mutt_header.h"
 #include "mutt_logging.h"
@@ -129,6 +130,8 @@ const struct MxOps *mx_ops[] = {
 #ifdef USE_COMP_MBOX
   &MxCompOps,
 #endif
+  &MxLocalFileOps,
+  &MxLocalDirOps,
   NULL,
 };
 
