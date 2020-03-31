@@ -270,7 +270,7 @@ int mx_path2_pretty(struct Path *path, const char *folder, bool use_desc)
   if (rc == 1)
     return rc;
 
-  path->pretty = mutt_str_strdup(path->orig);
+  path->pretty = mutt_str_dup(path->orig);
   return 0;
 }
 
