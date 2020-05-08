@@ -42,9 +42,9 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "mutt/lib.h"
 #include "mutt_commands.h"
 
+struct Buffer;
 struct ConfigSet;
 struct Mailbox;
 struct MuttWindow;
