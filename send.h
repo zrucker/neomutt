@@ -26,6 +26,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include "mutt/lib.h"
 
 struct Address;
 struct AddressList;
@@ -82,6 +83,28 @@ extern bool          C_SigDashes;
 extern char *        C_Signature;
 extern bool          C_SigOnTop;
 extern bool          C_UseFrom;
+
+/**
+ * struct SendContext - XXX
+ */
+struct SendContext
+{
+  int flags;
+  int state;
+
+  struct Email *e_templ;
+  struct Mailbox *mailbox;
+
+  /* Note: e_cur can't be stored in the send_context when
+   * background editing is added.  This is here for now
+   * just to ease refactoring.
+   */
+  struct Email *e_cur;
+  struct EmailList *el;
+  struct Buffer fcc;
+
+  char *ctx_realpath;
+};
 
 typedef uint16_t SendFlags;             ///< Flags for mutt_send_message(), e.g. #SEND_REPLY
 #define SEND_NO_FLAGS               0   ///< No flags are set
