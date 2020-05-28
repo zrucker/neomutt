@@ -280,6 +280,10 @@ struct ConfigDef MainVars[] = {
   { "write_inc", DT_NUMBER|DT_NOT_NEGATIVE, &C_WriteInc, 10 },
   { "escape", DT_DEPRECATED|DT_STRING, &C_Escape, IP "~" },
 
+#ifdef USE_DEVEL_WIDESCREEN
+  { "devel_index_widescreen", DT_BOOL, &C_DevelIndexWidescreen, false },
+#endif
+
   { "ignore_linear_white_space", DT_DEPRECATED|DT_BOOL,            &C_IgnoreLinearWhiteSpace, false   },
 
   { "edit_hdrs",              DT_SYNONYM, NULL, IP "edit_headers",             },
