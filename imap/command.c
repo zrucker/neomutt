@@ -161,6 +161,23 @@ static int cmd_queue(struct ImapAccountData *adata, const char *cmdstr, ImapCmdF
  */
 static void cmd_handle_fatal(struct ImapAccountData *adata)
 {
+  /* Attempt to reconnect later during mx_check_mailbox() */
+  if (Context && adata->ctx == Context)
+  {
+    if (adata->status != IMAP_FATAL)
+    {
+      adata->status = IMAP_FATAL;
+      /* L10N:
+         When a fatal error occurs with the IMAP connnection for
+         the currently open mailbox, we print this message, and
+         will try to reconnect and merge current changes back during
+         mx_check_mailbox()
+      */
+      mutt_error(_("A fatal error occurred.  Will attempt reconnection."));
+    }
+    return;
+  }
+
   adata->status = IMAP_FATAL;
 
   if (!adata->mailbox)

@@ -637,6 +637,10 @@ static void update_index(struct Menu *menu, struct Context *ctx, int check,
   if (!menu || !ctx)
     return;
 
+  /* for purposes of updating the index, MUTT_RECONNECTED is the same */
+  if (check == MUTT_RECONNECTED)
+    check = MUTT_REOPENED;
+
   if ((C_Sort & SORT_MASK) == SORT_THREADS)
     update_index_threaded(ctx, check, oldcount);
   else
@@ -740,7 +744,7 @@ static void change_folder_mailbox(struct Menu *menu, struct Mailbox *m, int *old
       if (monitor_remove_rc == 0)
         mutt_monitor_add(NULL);
 #endif
-      if ((check == MUTT_NEW_MAIL) || (check == MUTT_REOPENED))
+      if ((check == MUTT_NEW_MAIL) || (check == MUTT_REOPENED) || (check == MUTT_RECONNECTED))
         update_index(menu, Context, check, *oldcount, cur);
 
       FREE(&new_last_folder);
@@ -1273,13 +1277,19 @@ int mutt_index_menu(struct MuttWindow *dlg)
 
         OptSearchInvalid = true;
       }
-      else if ((check == MUTT_NEW_MAIL) || (check == MUTT_REOPENED) || (check == MUTT_FLAGS))
+      else if ((check == MUTT_NEW_MAIL) || (check == MUTT_REOPENED) || (check == MUTT_FLAGS) || (check == MUTT_RECONNECTED))
       {
         /* notify the user of new mail */
         if (check == MUTT_REOPENED)
         {
           mutt_error(
               _("Mailbox was externally modified.  Flags may be wrong."));
+        }
+        else if (check == MUTT_RECONNECTED)
+        {
+          /* L10N: Message printed on status line in index after mx_check_mailbox(),
+             when IMAP has an error and Mutt successfully reconnects.  */
+          mutt_error(_("Mailbox reconnected.  Some changes may have been lost."));
         }
         else if (check == MUTT_NEW_MAIL)
         {
@@ -1897,7 +1907,7 @@ int mutt_index_menu(struct MuttWindow *dlg)
             done = true;
           else
           {
-            if ((check == MUTT_NEW_MAIL) || (check == MUTT_REOPENED))
+            if ((check == MUTT_NEW_MAIL) || (check == MUTT_REOPENED) || (check == MUTT_RECONNECTED))
               update_index(menu, Context, check, oldcount, &cur);
 
             menu->redraw = REDRAW_FULL; /* new mail arrived? */
@@ -2043,7 +2053,7 @@ int mutt_index_menu(struct MuttWindow *dlg)
           int check = mx_mbox_close(&Context);
           if (check != 0)
           {
-            if ((check == MUTT_NEW_MAIL) || (check == MUTT_REOPENED))
+            if ((check == MUTT_NEW_MAIL) || (check == MUTT_REOPENED) || (check == MUTT_RECONNECTED))
               update_index(menu, Context, check, oldcount, &cur);
             OptSearchInvalid = true;
             menu->redraw = REDRAW_FULL;
@@ -2101,7 +2111,7 @@ int mutt_index_menu(struct MuttWindow *dlg)
             }
             OptSearchInvalid = true;
           }
-          else if ((check == MUTT_NEW_MAIL) || (check == MUTT_REOPENED))
+          else if ((check == MUTT_NEW_MAIL) || (check == MUTT_REOPENED) || (check == MUTT_RECONNECTED))
             update_index(menu, Context, check, oc, &cur);
 
           /* do a sanity check even if mx_mbox_sync failed.  */

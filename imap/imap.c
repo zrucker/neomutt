@@ -55,6 +55,7 @@
 #include "muttlib.h"
 #include "mx.h"
 #include "progress.h"
+#include "protos.h"
 #include "sort.h"
 #include "bcache/lib.h"
 #include "pattern/lib.h"
@@ -86,6 +87,139 @@ static int check_capabilities(struct ImapAccountData *adata)
   }
 
   return 0;
+}
+
+/* Try to reconnect and merge current state back in.
+ * This is only done currently during mx_check_mailbox() polling
+ * when reopen is allowed. */
+int imap_reconnect(struct ImapAccountData **ptr)
+{
+  struct Context *ctx_orig = NULL, ctx_new = NULL;
+  int rc = -1, i;
+  struct ImapAccountData *adata = *ptr;
+  struct Email *e_old = NULL, *e_new = NULL;
+
+  /* L10N:
+     Message displayed when IMAP connection is lost and Mutt
+     tries to reconnect.
+  */
+  mutt_message(_("Trying to reconnect..."));
+  mutt_sleep(0);
+
+  ctx_orig = adata->ctx;
+  if (!ctx_orig)
+    goto cleanup;
+
+  if (mx_open_mailbox(ctx_orig->path,
+                       ctx_orig->readonly ? MUTT_READONLY : 0,
+                       &ctx_new) == NULL)
+    goto cleanup;
+
+  ctx_new.dontwrite = ctx_orig->dontwrite;
+  ctx_new.pattern = ctx_orig->pattern;
+  ctx_new.limit_pattern = ctx_orig->limit_pattern;
+
+  ctx_orig->pattern = NULL;
+  ctx_orig->limit_pattern = NULL;
+
+  if (adata->uid_validity ==((struct ImapAccountData *) ctx_new.data)->uid_validity)
+  {
+    for (i = 0; i < ctx_new.msgcount; i++)
+    {
+      e_new = ctx_new.hdrs[i];
+      e_old =(struct Email *) mutt_hash_int_find(adata->uid_hash,
+                                          imap_edata_get(e_new)->uid);
+      if (!e_old)
+        continue;
+
+      /* this logic is in part from mbox/mbox.c. */
+      if (e_old->changed)
+      {
+        mutt_set_flag(&ctx_new, e_new, MUTT_FLAG, e_old->flagged);
+        mutt_set_flag(&ctx_new, e_new, MUTT_REPLIED, e_old->replied);
+        mutt_set_flag(&ctx_new, e_new, MUTT_OLD, e_old->old);
+        mutt_set_flag(&ctx_new, e_new, MUTT_READ, e_old->read);
+
+        /* TODO: the ->env check is unfortunately voodoo that I
+         * haven't taken the time to track down yet.  It's in other
+         * parts of the code but I don't know why yet. */
+        if (e_old->env && e_old->env->changed)
+        {
+          e_new->env->changed = e_old->env->changed;
+          e_new->changed = true;
+          ctx_new.changed = true;
+
+          if (e_old->env->changed & MUTT_ENV_CHANGED_IRT)
+          {
+            mutt_list_free(&e_new->env->in_reply_to);
+            e_new->env->in_reply_to = e_old->env->in_reply_to;
+            e_old->env->in_reply_to = NULL;
+          }
+          if (e_old->env->changed & MUTT_ENV_CHANGED_REFS)
+          {
+            mutt_list_free(&e_new->env->references);
+            e_new->env->references = e_old->env->references;
+            e_old->env->references = NULL;
+          }
+          if (e_old->env->changed & MUTT_ENV_CHANGED_XLABEL)
+          {
+            FREE(&e_new->env->x_label);
+            e_new->env->x_label = e_old->env->x_label;
+            e_old->env->x_label = NULL;
+          }
+          if (e_old->env->changed & MUTT_ENV_CHANGED_SUBJECT)
+          {
+            FREE(&e_new->env->subject);
+            e_new->env->subject = e_old->env->subject;
+            e_new->env->real_subj = e_old->env->real_subj;
+            e_old->env->subject = e_old->env->real_subj = NULL;
+          }
+        }
+
+        if (e_old->attach_del)
+        {
+          if (e_old->content->parts && !e_new->content->parts)
+          {
+            e_new->attach_del = true;
+            e_new->changed = true;
+            ctx_new.changed = true;
+            e_new->content->parts = e_old->content->parts;
+            e_old->content->parts = NULL;
+          }
+        }
+      }
+
+      mutt_set_flag(&ctx_new, e_new, MUTT_DELETE, e_old->deleted);
+      mutt_set_flag(&ctx_new, e_new, MUTT_PURGE, e_old->purge);
+      mutt_set_flag(&ctx_new, e_new, MUTT_TAG, e_old->tagged);
+    }
+  }
+
+  rc = 0;
+
+cleanup:
+  adata->status = IMAP_FATAL;
+  mx_fastclose_mailbox(ctx_orig);
+  imap_close_connection(adata);
+
+  if (rc != 0)
+  {
+    /* L10N: Message when Mutt tries to reconnect to an IMAP mailbox but is
+       unable to.  */
+    mutt_error(_("Reconnect failed.  Mailbox closed."));
+  }
+  else
+  {
+    memcpy(ctx_orig, &ctx_new, sizeof(struct Context));
+    adata =(struct ImapAccountData *)ctx_orig->data;
+    adata->ctx = ctx_orig;
+    *ptr = adata;
+    // L10N: Message when Mutt reconnects to an IMAP mailbox after a fatal error
+    mutt_error(_("Reconnect succeeded."));
+  }
+  mutt_sleep(0);
+
+  return rc;
 }
 
 /**
@@ -1069,25 +1203,26 @@ int imap_check_mailbox(struct Mailbox *m, bool force)
   /* overload keyboard timeout to avoid many mailbox checks in a row.
    * Most users don't like having to wait exactly when they press a key. */
   int rc = 0;
+  int rc_poll;
 
   /* try IDLE first, unless force is set */
   if (!force && C_ImapIdle && (adata->capabilities & IMAP_CAP_IDLE) &&
       ((adata->state != IMAP_IDLE) || (mutt_date_epoch() >= adata->lastread + C_ImapKeepalive)))
   {
     if (imap_cmd_idle(adata) < 0)
-      return -1;
+      goto errcleanup;
   }
   if (adata->state == IMAP_IDLE)
   {
-    while ((rc = mutt_socket_poll(adata->conn, 0)) > 0)
+    while ((rc_poll = mutt_socket_poll(adata->conn, 0)) > 0)
     {
       if (imap_cmd_step(adata) != IMAP_RES_CONTINUE)
       {
         mutt_debug(LL_DEBUG1, "Error reading IDLE response\n");
-        return -1;
+        goto errcleanup;
       }
     }
-    if (rc < 0)
+    if (rc_poll < 0)
     {
       mutt_debug(LL_DEBUG1, "Poll failed, disabling IDLE\n");
       adata->capabilities &= ~IMAP_CAP_IDLE; // Clear the flag
@@ -1098,12 +1233,31 @@ int imap_check_mailbox(struct Mailbox *m, bool force)
                  (mutt_date_epoch() >= adata->lastread + C_Timeout))) &&
       (imap_exec(adata, "NOOP", IMAP_CMD_POLL) != IMAP_EXEC_SUCCESS))
   {
-    return -1;
+    goto errcleanup;
   }
 
   /* We call this even when we haven't run NOOP in case we have pending
    * changes to process, since we can reopen here. */
   imap_cmd_finish(adata);
+
+  rc = 0;
+
+errcleanup:
+  /* Try to reconnect Context if a cmd_handle_fatal() was flagged */
+  if (adata->status == IMAP_FATAL)
+  {
+    if ((adata->reopen & IMAP_REOPEN_ALLOW) &&
+        Context &&
+        adata->ctx == Context)
+    {
+      if (imap_reconnect(&adata) == 0)
+      {
+        adata->check_status = 0;
+        return MUTT_RECONNECTED;
+      }
+    }
+    return -1;
+  }
 
   if (mdata->check_status & IMAP_EXPUNGE_PENDING)
     rc = MUTT_REOPENED;

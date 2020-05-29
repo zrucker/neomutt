@@ -29,6 +29,12 @@
 #include "mutt/lib.h"
 #include "address/lib.h"
 
+/* Flags for envelope->changed.
+ * Note that additions to this list also need to be added to:
+ *   mutt_copy_header()
+ *   mutt_env_merge()
+ *   imap_reconnect()
+ */
 #define MUTT_ENV_CHANGED_IRT     (1 << 0)  ///< In-Reply-To changed to link/break threads
 #define MUTT_ENV_CHANGED_REFS    (1 << 1)  ///< References changed to break thread
 #define MUTT_ENV_CHANGED_XLABEL  (1 << 2)  ///< X-Label edited

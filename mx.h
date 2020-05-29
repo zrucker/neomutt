@@ -75,6 +75,7 @@ enum MxCheckReturns
   MUTT_LOCKED,       ///< Couldn't lock the Mailbox
   MUTT_REOPENED,     ///< Mailbox was reopened
   MUTT_FLAGS,        ///< Nondestructive flags change (IMAP)
+  MUTT_RECONNECTED   ///< Lost connection, reconnected (IMAP)
 };
 
 /**
