@@ -1116,11 +1116,6 @@ static void index_custom_redraw(struct Menu *menu)
     mutt_show_error();
   }
 
-#ifdef USE_SIDEBAR
-  if (menu->redraw & REDRAW_SIDEBAR)
-    menu_redraw_sidebar(menu);
-#endif
-
   if (Context && Context->mailbox && Context->mailbox->emails &&
       !(menu->current >= Context->mailbox->vcount))
   {
@@ -1365,6 +1360,7 @@ int mutt_index_menu(struct MuttWindow *dlg)
     else
     {
       index_custom_redraw(menu);
+      window_redraw(dlg);
 
       /* give visual indication that the next command is a tag- command */
       if (tag)

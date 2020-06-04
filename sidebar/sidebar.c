@@ -45,7 +45,6 @@
 #include "context.h"
 #include "format_flags.h"
 #include "mutt_globals.h"
-#include "mutt_menu.h"
 #include "muttlib.h"
 
 struct ListHead SidebarWhitelist = STAILQ_HEAD_INITIALIZER(SidebarWhitelist); ///< List of mailboxes to always display in the sidebar
@@ -1031,7 +1030,7 @@ void sb_notify_mailbox(struct MuttWindow *win, struct SidebarWindowData *wdata,
 
   // otherwise, we just need to redraw
 
-  mutt_menu_set_current_redraw(REDRAW_SIDEBAR);
+  win->actions |= WA_RECALC;
 }
 
 /**
@@ -1085,6 +1084,25 @@ void sb_draw(struct MuttWindow *win)
 }
 
 /**
+ * sb_recalc - Recalculate the Sidebar data - Implements MuttWindow::recalc()
+ */
+int sb_recalc(struct MuttWindow *win, bool all)
+{
+  mutt_debug(LL_DEBUG1, "SIDEBAR RECALC\n");
+  return -1;
+}
+
+/**
+ * sb_repaint - Repaint the Sidebar - Implements MuttWindow::repaint()
+ */
+int sb_repaint(struct MuttWindow *win, bool all)
+{
+  mutt_debug(LL_DEBUG1, "SIDEBAR REPAINT\n");
+  sb_draw(win);
+  return -1;
+}
+
+/**
  * sb_win_init - Initialise and insert the Sidebar Window
  * @param dlg Index Dialog
  */
@@ -1111,6 +1129,8 @@ void sb_win_init(struct MuttWindow *dlg)
   win_sidebar->state.visible = C_SidebarVisible && (C_SidebarWidth > 0);
   win_sidebar->wdata = sb_wdata_new();
   win_sidebar->wdata_free = sb_wdata_free;
+  win_sidebar->recalc = sb_recalc;
+  win_sidebar->repaint = sb_repaint;
 
   if (C_SidebarOnRight)
   {

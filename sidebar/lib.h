@@ -69,8 +69,6 @@ struct Mailbox *sb_get_highlight (struct MuttWindow *win);
 enum CommandResult sb_parse_unwhitelist(struct Buffer *buf, struct Buffer *s, intptr_t data, struct Buffer *err);
 enum CommandResult sb_parse_whitelist  (struct Buffer *buf, struct Buffer *s, intptr_t data, struct Buffer *err);
 
-void sb_draw            (struct MuttWindow *win);
-
 #ifdef USE_SIDEBAR
 bool config_init_sidebar(struct ConfigSet *cs);
 #else

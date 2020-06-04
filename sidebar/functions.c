@@ -30,11 +30,9 @@
 #include <stdbool.h>
 #include "private.h"
 #include "core/lib.h"
+#include "gui/lib.h"
 #include "lib.h"
-#include "mutt_menu.h"
 #include "opcodes.h"
-
-struct MuttWindow;
 
 /**
  * select_next - Selects the next unhidden mailbox
@@ -283,5 +281,6 @@ void sb_change_mailbox(struct MuttWindow *win, int op)
     default:
       return;
   }
-  mutt_menu_set_current_redraw(REDRAW_SIDEBAR);
+
+  win->actions |= WA_RECALC;
 }

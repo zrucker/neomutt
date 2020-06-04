@@ -874,7 +874,6 @@ int mx_mbox_close(struct Context **ptr)
     mutt_file_unlink_empty(mailbox_path(m));
   }
 
-#ifdef USE_SIDEBAR
   if ((purge == MUTT_YES) && (m->msg_deleted != 0))
   {
     for (i = 0; i < m->msg_count; i++)
@@ -892,7 +891,6 @@ int mx_mbox_close(struct Context **ptr)
         m->msg_flagged--;
     }
   }
-#endif
 
   mx_fastclose_mailbox(m);
   ctx_free(ptr);

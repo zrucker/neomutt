@@ -64,12 +64,10 @@ static void mailbox_check(struct Mailbox *m_cur, struct Mailbox *m_check,
 {
   struct stat sb = { 0 };
 
-#ifdef USE_SIDEBAR
   short orig_new = m_check->has_new;
   int orig_count = m_check->msg_count;
   int orig_unread = m_check->msg_unread;
   int orig_flagged = m_check->msg_flagged;
-#endif
 
   enum MailboxType mb_type = mx_path_probe(mailbox_path(m_check));
 
@@ -124,13 +122,11 @@ static void mailbox_check(struct Mailbox *m_cur, struct Mailbox *m_check,
   else if (C_CheckMboxSize && m_cur && mutt_buffer_is_empty(&m_cur->pathbuf))
     m_check->size = (off_t) sb.st_size; /* update the size of current folder */
 
-#ifdef USE_SIDEBAR
   if ((orig_new != m_check->has_new) || (orig_count != m_check->msg_count) ||
       (orig_unread != m_check->msg_unread) || (orig_flagged != m_check->msg_flagged))
   {
-    mutt_menu_set_current_redraw(REDRAW_SIDEBAR);
+    mailbox_changed(m_check, NT_MAILBOX_CHANGED);
   }
-#endif
 
   if (!m_check->has_new)
     m_check->notified = false;

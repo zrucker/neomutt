@@ -903,13 +903,11 @@ static void cmd_parse_status(struct ImapAccountData *adata, char *s)
   else
     new_mail = (mdata->unseen > 0);
 
-#ifdef USE_SIDEBAR
   if ((m->has_new != new_mail) || (m->msg_count != mdata->messages) ||
       (m->msg_unread != mdata->unseen))
   {
-    mutt_menu_set_current_redraw(REDRAW_SIDEBAR);
+    mailbox_changed(m, NT_MAILBOX_CHANGED);
   }
-#endif
 
   m->has_new = new_mail;
   m->msg_count = mdata->messages;

@@ -2042,9 +2042,6 @@ static void pager_custom_redraw(struct Menu *pager_menu)
     }
 
     pager_menu->redraw |= REDRAW_BODY | REDRAW_INDEX | REDRAW_STATUS;
-#ifdef USE_SIDEBAR
-    pager_menu->redraw |= REDRAW_SIDEBAR;
-#endif
     mutt_show_error();
   }
 
@@ -2088,13 +2085,6 @@ static void pager_custom_redraw(struct Menu *pager_menu)
       }
     }
   }
-
-#ifdef USE_SIDEBAR
-  if (pager_menu->redraw & REDRAW_SIDEBAR)
-  {
-    menu_redraw_sidebar(pager_menu);
-  }
-#endif
 
   if ((pager_menu->redraw & REDRAW_BODY) || (rd->topline != rd->oldtopline))
   {
@@ -2335,11 +2325,14 @@ int mutt_pager(const char *banner, const char *fname, PagerFlags flags, struct P
   pager_menu->redraw_data = &rd;
   mutt_menu_push_current(pager_menu);
 
+  struct MuttWindow *dlg = mutt_window_dialog(extra->win_pager);
+
   while (ch != -1)
   {
     mutt_curses_set_cursor(MUTT_CURSOR_INVISIBLE);
 
     pager_custom_redraw(pager_menu);
+    window_redraw(dlg);
 
     if (C_BrailleFriendly)
     {

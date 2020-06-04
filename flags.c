@@ -328,9 +328,7 @@ void mutt_set_flag_update(struct Mailbox *m, struct Email *e, int flag, bool bf,
   if (update)
   {
     mutt_set_header_color(m, e);
-#ifdef USE_SIDEBAR
-    mutt_menu_set_current_redraw(REDRAW_SIDEBAR);
-#endif
+    mailbox_changed(m, NT_MAILBOX_CHANGED);
   }
 
   /* if the message status has changed, we need to invalidate the cached

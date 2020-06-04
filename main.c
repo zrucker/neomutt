@@ -78,9 +78,6 @@
 #ifdef ENABLE_NLS
 #include <libintl.h>
 #endif
-#ifdef USE_SIDEBAR
-#include "sidebar/lib.h"
-#endif
 #ifdef USE_IMAP
 #include "imap/lib.h"
 #endif
@@ -1209,9 +1206,9 @@ int main(int argc, char *argv[], char *envp[])
     }
     if (Context || !explicit_folder)
     {
+      mailbox_changed(Context ? Context->mailbox : NULL, NT_MAILBOX_SWITCH);
       struct MuttWindow *dlg = index_pager_init();
       dialog_push(dlg);
-      mailbox_changed(Context ? Context->mailbox : NULL, NT_MAILBOX_SWITCH);
       mutt_index_menu(dlg);
       dialog_pop();
       index_pager_shutdown(dlg);

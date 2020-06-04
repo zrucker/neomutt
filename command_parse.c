@@ -58,9 +58,6 @@
 #include "options.h"
 #include "version.h"
 #include "imap/lib.h"
-#ifdef USE_SIDEBAR
-#include "sidebar/lib.h"
-#endif
 #ifdef ENABLE_NLS
 #include <libintl.h>
 #endif
@@ -970,10 +967,6 @@ enum CommandResult parse_mailboxes(struct Buffer *buf, struct Buffer *s,
           mutt_str_replace(&m_old->name, m->name);
         }
 
-#ifdef USE_SIDEBAR
-        if (show || rename)
-          mailbox_changed(m_old, show ? NT_MAILBOX_ADD : NT_MAILBOX_CHANGED);
-#endif
         mailbox_free(&m);
         continue;
       }
@@ -997,9 +990,6 @@ enum CommandResult parse_mailboxes(struct Buffer *buf, struct Buffer *s,
       neomutt_account_add(NeoMutt, a);
     }
 
-#ifdef USE_SIDEBAR
-    mailbox_changed(m, NT_MAILBOX_ADD);
-#endif
 #ifdef USE_INOTIFY
     mutt_monitor_add(m);
 #endif
@@ -1956,9 +1946,6 @@ enum CommandResult parse_unmailboxes(struct Buffer *buf, struct Buffer *s,
         continue;
       }
 
-#ifdef USE_SIDEBAR
-      mailbox_changed(np->mailbox, NT_MAILBOX_REMOVE);
-#endif
 #ifdef USE_INOTIFY
       mutt_monitor_remove(np->mailbox);
 #endif
