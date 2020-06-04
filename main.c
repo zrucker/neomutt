@@ -1211,10 +1211,7 @@ int main(int argc, char *argv[], char *envp[])
     {
       struct MuttWindow *dlg = index_pager_init();
       dialog_push(dlg);
-#ifdef USE_SIDEBAR
-      struct MuttWindow *win_sidebar = mutt_window_find(dlg, WT_SIDEBAR);
-      sb_set_open_mailbox(win_sidebar, Context ? Context->mailbox : NULL);
-#endif
+      mailbox_changed(Context ? Context->mailbox : NULL, NT_MAILBOX_SWITCH);
       mutt_index_menu(dlg);
       dialog_pop();
       index_pager_shutdown(dlg);

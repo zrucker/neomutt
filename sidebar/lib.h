@@ -43,12 +43,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "mutt/lib.h"
-#include "gui/lib.h"
 #include "mutt_commands.h"
 
 struct ConfigSet;
 struct Mailbox;
 struct MuttWindow;
+struct SidebarWindowData;
 
 void sb_init    (void);
 void sb_shutdown(void);
@@ -69,9 +69,7 @@ struct Mailbox *sb_get_highlight (struct MuttWindow *win);
 enum CommandResult sb_parse_unwhitelist(struct Buffer *buf, struct Buffer *s, intptr_t data, struct Buffer *err);
 enum CommandResult sb_parse_whitelist  (struct Buffer *buf, struct Buffer *s, intptr_t data, struct Buffer *err);
 
-void sb_notify_mailbox  (struct MuttWindow *win, struct Mailbox *m, enum SidebarNotification sbn);
 void sb_draw            (struct MuttWindow *win);
-void sb_set_open_mailbox(struct MuttWindow *win, struct Mailbox *m);
 
 #ifdef USE_SIDEBAR
 bool config_init_sidebar(struct ConfigSet *cs);

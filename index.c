@@ -793,11 +793,7 @@ static void change_folder_mailbox(struct Menu *menu, struct Mailbox *m, int *old
   if (((C_Sort & SORT_MASK) == SORT_THREADS) && C_CollapseAll)
     collapse_all(Context, menu, 0);
 
-#ifdef USE_SIDEBAR
-  struct MuttWindow *dlg = mutt_window_dialog(menu->win_index);
-  struct MuttWindow *win_sidebar = mutt_window_find(dlg, WT_SIDEBAR);
-  sb_set_open_mailbox(win_sidebar, Context ? Context->mailbox : NULL);
-#endif
+  mailbox_changed(Context ? Context->mailbox : NULL, NT_MAILBOX_SWITCH);
 
   mutt_clear_error();
   mutt_mailbox_check(Context ? Context->mailbox : NULL, MUTT_MAILBOX_CHECK_FORCE); /* force the mailbox check after we have changed the folder */

@@ -25,6 +25,7 @@
 
 #include <stdbool.h>
 #include "gui/lib.h"
+#include "lib.h"
 
 struct NotifyCallback;
 
@@ -88,13 +89,16 @@ extern bool  C_SidebarVisible;
 extern short C_SidebarWidth;
 
 // sidebar.c
+void sb_notify_mailbox  (struct MuttWindow *win, struct SidebarWindowData *wdata, struct Mailbox *m, enum SidebarNotification sbn);
+void sb_set_open_mailbox(struct MuttWindow *win, struct Mailbox *m);
 void sb_win_init        (struct MuttWindow *dlg);
 void sb_win_shutdown    (struct MuttWindow *dlg);
 bool select_next        (struct SidebarWindowData *wdata);
 
 // observer.c
+int sb_dialog_observer   (struct NotifyCallback *nc);
 int sb_insertion_observer(struct NotifyCallback *nc);
-int sb_observer(struct NotifyCallback *nc);
+int sb_neomutt_observer  (struct NotifyCallback *nc);
 
 // wdata.c
 void                      sb_wdata_free(struct MuttWindow *win, void **ptr);
