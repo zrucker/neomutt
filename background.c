@@ -38,6 +38,16 @@
 
 struct SendContext *BackgroundProcess = NULL;
 
+static const struct Mapping LandingHelp[] = {
+  { N_("Exit"), OP_EXIT },
+  { N_("Redraw"), OP_REDRAW },
+  { N_("Help"), OP_HELP },
+  { NULL, 0 },
+};
+
+/**
+ * mutt_background_run - XXX
+ */
 static pid_t mutt_background_run(const char *cmd)
 {
   struct sigaction act;
@@ -88,13 +98,9 @@ static pid_t mutt_background_run(const char *cmd)
   return (thepid);
 }
 
-static const struct Mapping LandingHelp[] = {
-  { N_("Exit"), OP_EXIT },
-  { N_("Redraw"), OP_REDRAW },
-  { N_("Help"), OP_HELP },
-  { NULL, 0 },
-};
-
+/**
+ * landing_redraw - XXX
+ */
 static void landing_redraw(struct Menu *menu)
 {
   menu_redraw(menu);
@@ -102,14 +108,18 @@ static void landing_redraw(struct Menu *menu)
   mutt_window_mvaddstr(MuttIndexWindow, 1, 0, _("Hit <exit> to background editor."));
 }
 
-/* Displays the "waiting for editor" page.
+/**
+ * background_edit_landing_page - Display the "waiting for editor" page
+ * @param
+ *
  * Returns:
  *   2 if the the menu is exited, leaving the process backgrounded
  *   0 when the waitpid() indicates the process has exited
  */
 static int background_edit_landing_page(pid_t bg_pid)
 {
-  int done = 0, rc = 0, op;
+  bool done = false;
+  int rc = 0, op;
   short orig_timeout;
   pid_t wait_rc;
   struct Menu *menu;
@@ -158,7 +168,7 @@ static int background_edit_landing_page(pid_t bg_pid)
 
       case OP_EXIT:
         rc = 2;
-        done = 1;
+        done = true;
         break;
 
       case OP_REDRAW:
@@ -176,7 +186,9 @@ static int background_edit_landing_page(pid_t bg_pid)
   return rc;
 }
 
-/* Runs editor in the background.
+/**
+ * mutt_background_edit_file - Run editor in the background
+ * @param
  *
  * After backgrounding the process, the background landing page will
  * be displayed.  The user will have the opportunity to "quit" the
