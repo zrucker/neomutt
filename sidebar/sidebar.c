@@ -47,6 +47,8 @@
 #include "mutt_globals.h"
 #include "muttlib.h"
 
+int win_depth = 0;
+
 struct ListHead SidebarWhitelist = STAILQ_HEAD_INITIALIZER(SidebarWhitelist); ///< List of mailboxes to always display in the sidebar
 
 /**
@@ -468,6 +470,8 @@ static void sort_entries(struct SidebarWindowData *wdata)
  */
 static void calc_page(struct MuttWindow *win, struct SidebarWindowData *wdata, int page_size)
 {
+  if (!wdata || !wdata->entries)
+    return;
   if (page_size <= 0)
     return;
 
@@ -642,7 +646,11 @@ static void fill_empty_space(struct MuttWindow *win, int first_row,
                              int num_rows, int div_width, int num_cols)
 {
   /* Fill the remaining rows with blank space */
-  mutt_curses_set_color(MT_COLOR_NORMAL);
+  // mutt_curses_set_color(MT_COLOR_NORMAL);
+  if (win_depth == 1)
+    mutt_curses_set_color(MT_COLOR_ERROR);
+  else
+    mutt_curses_set_color(MT_COLOR_WARNING);
 
   if (!C_SidebarOnRight)
     div_width = 0;
@@ -651,7 +659,7 @@ static void fill_empty_space(struct MuttWindow *win, int first_row,
     mutt_window_move(win, div_width, first_row + r);
 
     for (int i = 0; i < num_cols; i++)
-      mutt_window_addch(' ');
+      mutt_window_addch('X');
   }
 }
 
@@ -973,6 +981,7 @@ void sb_set_open_mailbox(struct MuttWindow *win, struct Mailbox *m)
     {
       wdata->opn_index = entry;
       wdata->hil_index = entry;
+      win->actions |= WA_RECALC;
       break;
     }
   }
@@ -1166,6 +1175,7 @@ void sb_win_init(struct MuttWindow *dlg)
   notify_observer_add(NeoMutt->notify, sb_neomutt_observer, win_sidebar);
   // Only listen to OUR index events
   notify_observer_add(dlg->notify, sb_dialog_observer, win_sidebar);
+  win_depth++;
 }
 
 /**
@@ -1180,6 +1190,7 @@ void sb_win_shutdown(struct MuttWindow *dlg)
 
   notify_observer_remove(NeoMutt->notify, sb_neomutt_observer, win);
   notify_observer_remove(dlg->notify, sb_dialog_observer, win);
+  win_depth--;
 }
 
 /**

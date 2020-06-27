@@ -1417,6 +1417,7 @@ int mutt_compose_menu(struct Email *e, struct Buffer *fcc, struct Email *e_cur, 
 #ifdef USE_NNTP
     OptNews = false; /* for any case */
 #endif
+    window_redraw(dlg);
     const int op = mutt_menu_loop(menu);
     if (op >= 0)
       mutt_debug(LL_DEBUG1, "Got op %s (%d)\n", OpStrings[op][0], op);
