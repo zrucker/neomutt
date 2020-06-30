@@ -73,6 +73,7 @@
 #include "notmuch/lib.h"
 #include "pattern/lib.h"
 #include "pop/lib.h"
+#include "preview/lib.h"
 #include "send/lib.h"
 #include "store/lib.h"
 #ifdef USE_SIDEBAR
@@ -757,6 +758,8 @@ int mutt_init(struct ConfigSet *cs, bool skip_sys_rc, struct ListHead *commands)
 #ifdef USE_SIDEBAR
   sb_init();
 #endif
+
+  preview_init();
 
   snprintf(AttachmentMarker, sizeof(AttachmentMarker), "\033]9;%" PRIu64 "\a", // Escape
            mutt_rand64());
