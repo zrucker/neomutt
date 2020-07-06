@@ -56,6 +56,7 @@
 #include "mutt_logging.h"
 #include "mutt_menu.h"
 #include "mutt_window.h"
+#include "mutt_thread.h"
 #include "opcodes.h"
 #include "options.h"
 #include "pager.h"
