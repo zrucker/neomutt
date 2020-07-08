@@ -37,6 +37,7 @@
 #include "email/lib.h"
 #include "core/lib.h"
 #include "mutt_thread.h"
+#include "mx.h" // mx_padding_size
 #include "protos.h" // mutt_set_flag
 #include "sort.h" // C_Sort, sort_t
 
@@ -1225,10 +1226,9 @@ int mutt_parent_message(struct Email *e, bool find_root)
 /**
  * mutt_set_vnum - Set the virtual index number of all the messages in a mailbox
  * @param m       Mailbox
- * @param padding Number of bytes between messages
  * @retval mum Size in bytes of all messages shown
  */
-off_t mutt_set_vnum(struct Mailbox *m, int padding)
+off_t mutt_set_vnum(struct Mailbox *m)
 {
   if (!m)
     return 0;
@@ -1236,6 +1236,7 @@ off_t mutt_set_vnum(struct Mailbox *m, int padding)
   off_t vsize = 0;
 
   m->vcount = 0;
+  int padding = mx_msg_padding_size(m);
 
   for (int i = 0; i < m->msg_count; i++)
   {
