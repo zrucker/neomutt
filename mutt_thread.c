@@ -1234,9 +1234,9 @@ off_t mutt_set_vnum(struct Mailbox *m)
     return 0;
 
   off_t vsize = 0;
+  const int padding = mx_msg_padding_size(m);
 
   m->vcount = 0;
-  int padding = mx_msg_padding_size(m);
 
   for (int i = 0; i < m->msg_count; i++)
   {
