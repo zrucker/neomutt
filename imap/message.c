@@ -52,9 +52,11 @@
 #include "mx.h"
 #include "progress.h"
 #include "protos.h"
-#include "autocrypt/lib.h"
 #include "bcache/lib.h"
 #include "imap/lib.h"
+#ifdef USE_AUTOCRYPT
+#include "autocrypt/lib.h"
+#endif
 #ifdef ENABLE_NLS
 #include <libintl.h>
 #endif

@@ -61,7 +61,6 @@
 #include "options.h"
 #include "protos.h"
 #include "sort.h"
-#include "autocrypt/lib.h"
 #include "compress/lib.h"
 #include "hcache/lib.h"
 #include "history/lib.h"
@@ -77,6 +76,14 @@
 #include "store/lib.h"
 #ifdef USE_SIDEBAR
 #include "sidebar/lib.h"
+#endif
+#ifdef USE_AUTOCRYPT
+#include "autocrypt/lib.h"
+#else
+static inline bool config_init_autocrypt(struct ConfigSet *cs)
+{
+  return true;
+}
 #endif
 
 /* Initial string that starts completion. No telling how much the user has

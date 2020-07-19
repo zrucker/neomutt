@@ -74,9 +74,11 @@
 #include "protos.h"
 #include "recvattach.h"
 #include "state.h"
-#include "autocrypt/lib.h"
 #include "ncrypt/lib.h"
 #include "send/lib.h"
+#ifdef USE_AUTOCRYPT
+#include "autocrypt/lib.h"
+#endif
 #ifdef ENABLE_NLS
 #include <libintl.h>
 #endif
