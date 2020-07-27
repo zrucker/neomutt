@@ -146,8 +146,7 @@ static struct Mapping KeyNames[] = {
 int LastKey;        ///< contains the last key the user pressed
 keycode_t AbortKey; ///< code of key to abort prompts, normally Ctrl-G
 
-struct Keymap *Keymaps[MENU_MAX];
-struct KeymapList *NewKeymaps[MENU_MAX];
+struct KeymapList Keymaps[MENU_MAX];
 
 #ifdef NCURSES_VERSION
 /**
@@ -215,16 +214,17 @@ static void mutt_keymap_free(struct Keymap **km)
  * mutt_keymaplist_free - Free a List of Keymaps
  * @param km_list List of Keymaps to free
  */
-static void mutt_keymaplist_free(struct Keymap **km_list)
+static void mutt_keymaplist_free(struct KeymapList *km_list)
 {
-  struct Keymap *map = NULL;
-  struct Keymap *next = NULL;
-  for (map = (*km_list); map; map = next)
+  struct Keymap *np = NULL, *tmp = NULL;
+
+  STAILQ_FOREACH_SAFE(np, km_list, entries, tmp)
   {
-    next = map->next;
-    mutt_keymap_free(&map);
+    STAILQ_REMOVE(km_list, np, Keymap, entries);
+    mutt_keymap_free(&np);
   }
-  *km_list = NULL;
+
+  STAILQ_INIT(km_list);
 }
 
 /**
@@ -352,6 +352,28 @@ static size_t parsekeys(const char *str, keycode_t *d, size_t max)
 }
 
 /**
+ * km_compare_keys - Compare two keymaps' keyscodes and return the bigger one
+ * @param k1    first keymap to compare
+ * @param k2    second keymap to compare
+ * @param pos   position where the two keycodes differ
+ * @retval ptr Keymap with a bigger ASCII keycode
+ */
+static struct Keymap *km_compare_keys(struct Keymap *k1, struct Keymap *k2, size_t *pos)
+{
+  while (*pos < k1->len && *pos < k2->len)
+  {
+    if (k1->keys[*pos] < k2->keys[*pos])
+      return k2;
+    else if (k1->keys[*pos] > k2->keys[*pos])
+      return k1;
+    else
+      *pos = *pos + 1;
+  }
+
+  return NULL;
+}
+
+/**
  * km_bind_err - Set up a key binding
  * @param s     Key string
  * @param menu  Menu id, e.g. #MENU_EDITOR
@@ -368,7 +390,7 @@ static enum CommandResult km_bind_err(const char *s, enum MenuType menu, int op,
                                       char *macro, char *desc, struct Buffer *err)
 {
   enum CommandResult rc = MUTT_CMD_SUCCESS;
-  struct Keymap *last = NULL, *next = NULL;
+  struct Keymap *last = NULL, *np = NULL, *compare = NULL;
   keycode_t buf[MAX_SEQ];
   size_t pos = 0, lastpos = 0;
 
@@ -379,79 +401,73 @@ static enum CommandResult km_bind_err(const char *s, enum MenuType menu, int op,
   map->macro = mutt_str_dup(macro);
   map->desc = mutt_str_dup(desc);
 
-  struct Keymap *tmp = Keymaps[menu];
-
-  while (tmp)
+  /* find position to place new keymap */
+  STAILQ_FOREACH(np, &Keymaps[menu], entries)
   {
-    if ((pos >= len) || (pos >= tmp->len))
+    compare = km_compare_keys(map, np, &pos);
+
+    if (compare == map) /* map's keycode is bigger */
     {
-      /* map and tmp match so overwrite */
-      do
-      {
-        /* Don't warn on overwriting a 'noop' binding */
-        if ((tmp->len != len) && (tmp->op != OP_NULL))
-        {
-          /* Overwrite with the different lengths, warn */
-          /* TODO: MAX_SEQ here is wrong */
-          char old_binding[MAX_SEQ];
-          char new_binding[MAX_SEQ];
-          km_expand_key(old_binding, MAX_SEQ, map);
-          km_expand_key(new_binding, MAX_SEQ, tmp);
-          if (err)
-          {
-            /* err was passed, put the string there */
-            snprintf(
-                err->data, err->dsize,
-                _("Binding '%s' will alias '%s'  Before, try: 'bind %s %s "
-                  "noop'  "
-                  "https://neomutt.org/guide/configuration.html#bind-warnings"),
-                old_binding, new_binding, mutt_map_get_name(menu, Menus), new_binding);
-          }
-          else
-          {
-            mutt_error(
-                _("Binding '%s' will alias '%s'  Before, try: 'bind %s %s "
-                  "noop'  "
-                  "https://neomutt.org/guide/configuration.html#bind-warnings"),
-                old_binding, new_binding, mutt_map_get_name(menu, Menus), new_binding);
-          }
-          rc = MUTT_CMD_WARNING;
-        }
-        len = tmp->eq;
-        next = tmp->next;
-        mutt_keymap_free(&tmp);
-        tmp = next;
-      } while (tmp && len >= pos);
-      map->eq = len;
-      break;
+      last = np;
+      lastpos = pos;
+      if (pos > np->eq)
+        pos = np->eq;
     }
-    else if (buf[pos] == tmp->keys[pos])
-      pos++;
-    else if (buf[pos] < tmp->keys[pos])
+    else if (compare == np) /* np's keycode is bigger, found insert location */
     {
-      /* found location to insert between last and tmp */
       map->eq = pos;
       break;
     }
-    else /* buf[pos] > tmp->keys[pos] */
+    else /* equal keycodes */
     {
-      last = tmp;
-      lastpos = pos;
-      if (pos > tmp->eq)
-        pos = tmp->eq;
-      tmp = tmp->next;
+      /* Don't warn on overwriting a 'noop' binding */
+      if ((np->len != len) && (np->op != OP_NULL))
+      {
+        /* Overwrite with the different lengths, warn */
+        /* TODO: MAX_SEQ here is wrong */
+        char old_binding[MAX_SEQ];
+        char new_binding[MAX_SEQ];
+        km_expand_key(old_binding, MAX_SEQ, map);
+        km_expand_key(new_binding, MAX_SEQ, np);
+        if (err)
+        {
+          /* err was passed, put the string there */
+          snprintf(
+              err->data, err->dsize,
+              _("Binding '%s' will alias '%s'  Before, try: 'bind %s %s "
+                "noop'  "
+                "https://neomutt.org/guide/configuration.html#bind-warnings"),
+              old_binding, new_binding, mutt_map_get_name(menu, Menus), new_binding);
+        }
+        else
+        {
+          mutt_error(
+              _("Binding '%s' will alias '%s'  Before, try: 'bind %s %s "
+                "noop'  "
+                "https://neomutt.org/guide/configuration.html#bind-warnings"),
+              old_binding, new_binding, mutt_map_get_name(menu, Menus), new_binding);
+        }
+        rc = MUTT_CMD_WARNING;
+      }
+
+      map->eq = np->eq;
+      STAILQ_REMOVE(&Keymaps[menu], np, Keymap, entries);
+      mutt_keymap_free(&np);
+      break;
     }
   }
 
-  map->next = tmp;
-  if (last)
+  if (last) /* if queue has at least one entry */
   {
-    last->next = map;
+    if (STAILQ_NEXT(last, entries))
+      STAILQ_INSERT_AFTER(&Keymaps[menu], last, map, entries);
+    else /* last entry in the queue */
+      STAILQ_INSERT_TAIL(&Keymaps[menu], map, entries);
     last->eq = lastpos;
   }
-  else
+  else /* queue is empty, so insert from head */
   {
-    Keymaps[menu] = map;
+    STAILQ_INSERT_HEAD(&Keymaps[menu], map, entries);
   }
 
   return rc;
@@ -804,6 +820,8 @@ int km_dokey(enum MenuType menu)
  */
 static void create_bindings(const struct Binding *map, enum MenuType menu)
 {
+  STAILQ_INIT(&Keymaps[menu]);
+
   for (int i = 0; map[i].name; i++)
     if (map[i].seq)
       km_bindkey(map[i].seq, menu, map[i].op);
@@ -997,8 +1015,7 @@ void init_extended_keys(void)
  */
 void km_init(void)
 {
-  memset(Keymaps, 0, sizeof(struct Keymap *) * MENU_MAX);
-  memset(NewKeymaps, 0, sizeof(struct KeymapList *) * MENU_MAX);
+  memset(Keymaps, 0, sizeof(struct KeymapList) * MENU_MAX);
 
   create_bindings(OpAttach, MENU_ATTACH);
   create_bindings(OpBrowser, MENU_FOLDER);
