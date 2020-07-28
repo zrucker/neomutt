@@ -665,7 +665,7 @@ static int retry_generic(enum MenuType menu, keycode_t *keys, int keyslen, int l
 int km_dokey(enum MenuType menu)
 {
   struct KeyEvent tmp;
-  struct Keymap *map = Keymaps[menu];
+  struct Keymap *map = STAILQ_FIRST(&Keymaps[menu]);
   int pos = 0;
   int n = 0;
 
@@ -769,9 +769,9 @@ int km_dokey(enum MenuType menu)
     /* Nope. Business as usual */
     while (LastKey > map->keys[pos])
     {
-      if ((pos > map->eq) || !map->next)
+      if ((pos > map->eq) || !STAILQ_NEXT(map, entries))
         return retry_generic(menu, map->keys, pos, LastKey);
-      map = map->next;
+      map = STAILQ_NEXT(map, entries);
     }
 
     if (LastKey != map->keys[pos])
@@ -805,7 +805,7 @@ int km_dokey(enum MenuType menu)
       }
 
       generic_tokenize_push_string(map->macro, mutt_push_macro_event);
-      map = Keymaps[menu];
+      map = STAILQ_FIRST(&Keymaps[menu]);
       pos = 0;
     }
   }
@@ -945,12 +945,13 @@ int km_expand_key(char *s, size_t len, struct Keymap *map)
  */
 struct Keymap *km_find_func(enum MenuType menu, int func)
 {
-  struct Keymap *map = Keymaps[menu];
-
-  for (; map; map = map->next)
-    if (map->op == func)
+  struct Keymap *np = NULL;
+  STAILQ_FOREACH(np, &Keymaps[menu], entries)
+  {
+    if (np->op == func)
       break;
-  return map;
+  }
+  return np;
 }
 
 #ifdef NCURSES_VERSION
@@ -1450,44 +1451,18 @@ static void *parse_menu(bool *menu, char *s, struct Buffer *err)
  *
  * Iterate through Keymap and free keys defined either by "macro" or "bind".
  */
-static void km_unbind_all(struct Keymap **map, unsigned long mode)
+static void km_unbind_all(struct KeymapList *km_list, unsigned long mode)
 {
-  struct Keymap *next = NULL;
-  struct Keymap *first = NULL;
-  struct Keymap *last = NULL;
-  struct Keymap *cur = *map;
+  struct Keymap *np = NULL, *tmp = NULL;
 
-  while (cur)
+  STAILQ_FOREACH_SAFE(np, km_list, entries, tmp)
   {
-    next = cur->next;
-    if (((mode & MUTT_UNBIND) && !cur->macro) || ((mode & MUTT_UNMACRO) && cur->macro))
+    if (((mode & MUTT_UNBIND) && !np->macro) || ((mode & MUTT_UNMACRO) && np->macro))
     {
-      FREE(&cur->macro);
-      FREE(&cur->keys);
-      FREE(&cur->desc);
-      FREE(&cur);
+      STAILQ_REMOVE(km_list, np, Keymap, entries);
+      mutt_keymap_free(&np);
     }
-    else if (!first)
-    {
-      first = cur;
-      last = cur;
-    }
-    else if (last)
-    {
-      last->next = cur;
-      last = cur;
-    }
-    else
-    {
-      last = cur;
-    }
-    cur = next;
   }
-
-  if (last)
-    last->next = NULL;
-
-  *map = first;
 }
 
 /**
