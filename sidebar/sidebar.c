@@ -946,8 +946,6 @@ void sb_notify_mailbox(struct MuttWindow *win, struct Mailbox *m, enum SidebarNo
   }
 
   // otherwise, we just need to redraw
-
-  mutt_menu_set_current_redraw(REDRAW_SIDEBAR);
 }
 
 /**
